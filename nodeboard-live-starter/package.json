@@ -7,9 +7,17 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "node --check src/index.js",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:e2e": "playwright test",
+    "test:all": "npm run typecheck && npm test && playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "playwright": "^1.64.1",
     "wrangler": "^4.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261023.1": true
   }
 }

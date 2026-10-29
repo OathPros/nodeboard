@@ -53,7 +53,7 @@
 <div class="main">
   <header class="topbar"><div><div class="project-name" id="projectTitle">Untitled graph</div><div class="project-sub" id="saveLabel">Saved automatically in this browser</div></div><div class="top-right"><span id="liveStatus" class="live-status local"><i></i><span>Local board</span></span><button class="btn icon-only hide-small" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button><button class="btn icon-only hide-small" id="redoBtn" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button><button class="btn hide-small" id="clearBtn">Clear</button><div class="dropdown-wrap"><button class="btn" id="exportBtn">Export <span style="font-size:10px">▾</span></button><div class="dropdown" id="exportMenu"><button data-export="png">Image · PNG</button><button data-export="svg">Vector · SVG</button><button data-export="json">Editable graph · JSON</button><button data-export="import">Import JSON…</button></div></div><button class="btn collab-btn" id="collabBtn" aria-haspopup="dialog" aria-controls="collabBackdrop">♧ Collaborate</button><button class="btn primary" id="addBtn"><span style="font-size:18px;line-height:1">+</span> New node</button></div></header>
   <main class="workspace" id="workspace" aria-label="Graph drawing canvas">
-    <svg id="canvas" class="canvas" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive node graph" tabindex="0"><defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L8 4L0 8Z" fill="#8996a8"/></marker><marker id="arrowhead-selected" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L8 4L0 8Z" fill="#2b496e"/></marker><filter id="node-shadow" x="-20%" y="-40%" width="140%" height="190%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#203144" flood-opacity=".09"/></filter></defs><g id="scene"></g></svg>
+    <svg id="canvas" class="canvas" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Interactive node graph" tabindex="0"><defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L8 4L0 8Z" fill="#8996a8"/></marker><marker id="arrowhead-selected" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L8 4L0 8Z" fill="#2b496e"/></marker><filter id="node-shadow" x="-20%" y="-40%" width="140%" height="190%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#203144" flood-opacity=".09"/></filter></defs><g id="scene"></g><g id="cursorLayer" pointer-events="none"></g></svg>
     <div class="presence-strip" id="presenceStrip" aria-live="polite" style="display:none"></div><div class="floating-tools"><button id="zoomOut" title="Zoom out">−</button><span id="zoomInfo" class="zoom-info">100%</span><button id="zoomIn" title="Zoom in">+</button><span class="float-sep"></span><button id="fitBtn" title="Fit graph to view">⛶</button></div>
     <div class="canvas-hint">Double-click to grow your graph &nbsp;·&nbsp; Drag nodes to arrange &nbsp;·&nbsp; Scroll to zoom</div>
     <div class="stats" id="stats">0 nodes · 0 connections</div>
@@ -85,6 +85,7 @@
    <div class="invite-block"><span>Editor invitation</span><div class="invite-actions"><input readonly id="collabEditorLink" aria-label="Editor invitation link"><button class="btn" id="copyEditorLink">Copy link</button></div></div>
    <div class="invite-block" id="viewerInvite"><span>View-only invitation</span><div class="invite-actions"><input readonly id="collabViewerLink" aria-label="Viewer invitation link"><button class="btn" id="copyViewerLink">Copy link</button></div></div>
    <div class="collab-help" id="inviteGuidance">Anyone with an editor invitation can modify this session. Avoid sharing sensitive information.</div>
+   <div class="invite-block" id="ownerControls" hidden><span>Owner controls</span><div class="invite-actions"><button class="btn" id="rotateLinksBtn">Rotate invitation links</button><button class="btn" id="deleteSessionBtn" style="color:#be4057">Delete session</button></div></div>
    <button class="btn wide" id="collabLeaveBtn">Leave session · return to local board</button>
   </div>
   <div class="collab-error" id="collabError" role="alert" hidden></div>
@@ -100,20 +101,20 @@ const $=id=>document.getElementById(id);const svg=$('canvas'), scene=$('scene'),
 const SHAPES=['rounded','rectangle','pill','ellipse','diamond','hexagon','document','circle'];
 const CLASS_COLORS=['#e05a72','#8c77cf','#d6a642','#4b9dce','#38a99c','#79a948','#637dd6','#475569','#c86f9f','#e38a4d','#6d82ab','#a0794e'];
 const DEFAULT_CLASSES=[
- {key:1,name:'Service',shape:'rounded',color:'#e05a72'},
- {key:2,name:'Offering',shape:'pill',color:'#8c77cf'},
- {key:3,name:'Operation',shape:'hexagon',color:'#d6a642'},
- {key:4,name:'Application',shape:'ellipse',color:'#4b9dce'},
- {key:5,name:'Team',shape:'rectangle',color:'#38a99c'},
- {key:6,name:'Knowledge',shape:'document',color:'#79a948'},
- {key:7,name:'Person / role',shape:'diamond',color:'#637dd6'}
+ {id:'cls-service',key:1,name:'Service',shape:'rounded',color:'#e05a72'},
+ {id:'cls-offering',key:2,name:'Offering',shape:'pill',color:'#8c77cf'},
+ {id:'cls-operation',key:3,name:'Operation',shape:'hexagon',color:'#d6a642'},
+ {id:'cls-application',key:4,name:'Application',shape:'ellipse',color:'#4b9dce'},
+ {id:'cls-team',key:5,name:'Team',shape:'rectangle',color:'#38a99c'},
+ {id:'cls-knowledge',key:6,name:'Knowledge',shape:'document',color:'#79a948'},
+ {id:'cls-person',key:7,name:'Person / role',shape:'diamond',color:'#637dd6'}
 ];
 const sample={classes:structuredClone(DEFAULT_CLASSES),nodes:[
- {id:'n1',x:-300,y:-80,name:'Email & Calendaring',classId:1},
- {id:'n2',x:0,y:-155,name:'Faculty & Staff Email',classId:2},
- {id:'n3',x:295,y:-155,name:'Microsoft 365',classId:4},
- {id:'n4',x:0,y:60,name:'Messaging Team',classId:5},
- {id:'n5',x:290,y:65,name:'KA: Set up Outlook',classId:6}
+ {id:'n1',x:-300,y:-80,name:'Email & Calendaring',classId:'cls-service'},
+ {id:'n2',x:0,y:-155,name:'Faculty & Staff Email',classId:'cls-offering'},
+ {id:'n3',x:295,y:-155,name:'Microsoft 365',classId:'cls-application'},
+ {id:'n4',x:0,y:60,name:'Messaging Team',classId:'cls-team'},
+ {id:'n5',x:290,y:65,name:'KA: Set up Outlook',classId:'cls-knowledge'}
 ],edges:[
  {id:'e1',from:'n1',to:'n2',label:'HAS_OFFERING'},
  {id:'e2',from:'n2',to:'n3',label:'USES'},
@@ -121,21 +122,31 @@ const sample={classes:structuredClone(DEFAULT_CLASSES),nodes:[
  {id:'e4',from:'n2',to:'n5',label:'HAS_KNOWLEDGE'}
 ]};
 const STORAGE_KEY='nodeboard-v1.1';
-function validateGraph(g){return !!(g&&Array.isArray(g.nodes)&&Array.isArray(g.edges)&&Array.isArray(g.classes)&&g.classes.length>0&&g.classes.every((c,i)=>c&&c.key===i+1&&typeof c.name==='string'&&SHAPES.includes(c.shape)&&/^#[0-9a-f]{6}$/i.test(c.color))&&g.nodes.every(n=>g.classes.some(c=>c.key===n.classId)))}
-let graph;try{const old=JSON.parse(localStorage.getItem(STORAGE_KEY));graph=validateGraph(old)?old:structuredClone(sample)}catch(_){graph=structuredClone(sample)}
-let selectedNode=null,selectedEdge=null,lastNode=graph.nodes.length?graph.nodes[graph.nodes.length-1].id:null,activeClass=1,panX=0,panY=0,zoom=1,drag=null,spaceHeld=false,connectionFrom=null,edit=null,contextTarget=null,history=[],future=[],toastTimer=null,serial=0,pendingStyle=null;
+const validClassId=s=>typeof s==='string'&&/^[a-zA-Z0-9_-]{1,120}$/.test(s);
+function migrateLegacyGraph(g){if(!g||!Array.isArray(g.classes)||!Array.isArray(g.nodes))return g;
+ const needsIds=g.classes.some(c=>!c||!validClassId(c.id));
+ const numericRefs=g.nodes.some(n=>n&&typeof n.classId==='number');
+ if(!needsIds&&!numericRefs)return g;
+ const keyToId=new Map();
+ g.classes.forEach((c,i)=>{if(!c)return;if(!validClassId(c.id))c.id='cls-legacy-'+crypto.randomUUID().replace(/-/g,'');keyToId.set(c.key??i+1,c.id)});
+ for(const n of g.nodes){if(n&&typeof n.classId==='number')n.classId=keyToId.get(n.classId)||g.classes[0]?.id}
+ return g}
+function validateGraph(g){return !!(g&&Array.isArray(g.nodes)&&Array.isArray(g.edges)&&Array.isArray(g.classes)&&g.classes.length>0&&g.classes.every((c,i)=>c&&validClassId(c.id)&&c.key===i+1&&typeof c.name==='string'&&SHAPES.includes(c.shape)&&/^#[0-9a-f]{6}$/i.test(c.color))&&g.nodes.every(n=>g.classes.some(c=>c.id===n.classId)))}
+let graph;try{const old=migrateLegacyGraph(JSON.parse(localStorage.getItem(STORAGE_KEY)));graph=validateGraph(old)?old:structuredClone(sample)}catch(_){graph=structuredClone(sample)}
+let selectedNode=null,selectedEdge=null,lastNode=graph.nodes.length?graph.nodes[graph.nodes.length-1].id:null,activeClass=graph.classes[0].id,panX=0,panY=0,zoom=1,drag=null,spaceHeld=false,connectionFrom=null,edit=null,contextTarget=null,history=[],future=[],toastTimer=null,serial=0,pendingStyle=null;
 const escapeHtml=t=>String(t??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const hexSafe=(s,fallback='#7886a0')=>/^#[0-9a-f]{6}$/i.test(s||'')?s:fallback;
 function rgba(hex,a){hex=hexSafe(hex);let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return `rgba(${r},${g},${b},${a})`}
-function getClass(id){return graph.classes.find(c=>c.key===id)||graph.classes[0]}
+function getClass(id){return graph.classes.find(c=>c.id===id)||graph.classes[0]}
+function classByKey(key){return graph.classes.find(c=>c.key===Number(key))}
 function hslHex(h,s,l){s/=100;l/=100;const a=s*Math.min(l,1-l),f=n=>{let k=(n+h/30)%12;return Math.round(255*(l-a*Math.max(-1,Math.min(k-3,9-k,1)))).toString(16).padStart(2,'0')};return `#${f(0)}${f(8)}${f(4)}`}
 function unusedStyle(){const taken=new Set(graph.classes.map(c=>`${c.shape}|${c.color.toLowerCase()}`));let n=graph.classes.length;for(let i=0;i<100000;i++){const shape=SHAPES[(n+i)%SHAPES.length],color=i<CLASS_COLORS.length*SHAPES.length?CLASS_COLORS[(n+i)%CLASS_COLORS.length]:hslHex((n+i)*137.508%360,62,54);if(!taken.has(`${shape}|${color.toLowerCase()}`))return {shape,color}}return {shape:'rounded',color:hslHex(Math.random()*360,62,54)}}
-function checkCollision(candidate){return graph.classes.find(c=>c.key!==candidate.key&&c.shape===candidate.shape&&c.color.toLowerCase()===candidate.color.toLowerCase())||null}
-function reconcileClass(){if(!graph.classes.some(c=>c.key===activeClass))activeClass=graph.classes[0].key}
+function checkCollision(candidate){return graph.classes.find(c=>c.id!==candidate.id&&c.shape===candidate.shape&&c.color.toLowerCase()===candidate.color.toLowerCase())||null}
+function reconcileClass(){if(!graph.classes.some(c=>c.id===activeClass))activeClass=graph.classes[0].id}
 
 function getNode(id){return graph.nodes.find(n=>n.id===id)}
 function uid(prefix){return prefix+crypto.randomUUID().replace(/-/g,'')}
-function persist(){if(room.mode!=='local'){const s=room.mode==='live'?'Live · saved to session':room.mode==='connecting'?'Connecting to session…':'Disconnected · reconnecting…';$('saveLabel').textContent=room.role==='viewer'?'Viewing shared session':s;return}try{localStorage.setItem(STORAGE_KEY,JSON.stringify(graph));$('saveLabel').textContent='Saved automatically in this browser'}catch(_){$('saveLabel').textContent='Storage unavailable · export JSON to save'}}
+function persist(){if(room.mode!=='local'){let s=room.mode==='live'?'Live · saved to session':room.mode==='connecting'?'Connecting to session…':'Disconnected · reconnecting…';if(room.mode==='live'&&room.pending.length)s=`Live · syncing ${room.pending.length} change${room.pending.length!==1?'s':''}…`;$('saveLabel').textContent=room.role==='viewer'?'Viewing shared session':s;return}try{localStorage.setItem(STORAGE_KEY,JSON.stringify(graph));$('saveLabel').textContent='Saved automatically in this browser'}catch(_){$('saveLabel').textContent='Storage unavailable · export JSON to save'}}
 function renderAll(){reconcileClass();renderPalette();render();updateButtons();}
 function commit(fn){if(!mayEdit())return;const prev=structuredClone(graph);if(room.mode==='local'){history.push(JSON.stringify(graph));if(history.length>70)history.shift();future=[]}fn();persist();renderAll();if(room.mode==='live')publishGraphDiff(prev,graph)}
 function undo(){if(room.mode!=='local'){toastMsg('Undo is local-only until collaborative undo is implemented');return}if(!history.length)return;future.push(JSON.stringify(graph));graph=JSON.parse(history.pop());selectedNode=getNode(selectedNode)?.id||null;selectedEdge=graph.edges.some(e=>e.id===selectedEdge)?selectedEdge:null;persist();renderAll()}
@@ -143,7 +154,7 @@ function redo(){if(room.mode!=='local'){toastMsg('Redo is local-only until colla
 function updateButtons(){$('undoBtn').disabled=room.mode!=='local'||!history.length;$('redoBtn').disabled=room.mode!=='local'||!future.length;$('clearBtn').disabled=!mayEdit(false);$('addBtn').disabled=!mayEdit(false);$('sidebarAddClass').disabled=!mayEdit(false);$('addClass').disabled=!mayEdit(false)}
 function shapeMini(shape,color){const s=hexSafe(color);let inner='';switch(shape){case 'rectangle':inner=`<rect x="4" y="4" width="30" height="22" rx="2"/>`;break;case 'pill':inner=`<rect x="2" y="4" width="34" height="22" rx="11"/>`;break;case 'ellipse':inner=`<ellipse cx="19" cy="15" rx="17" ry="11"/>`;break;case 'diamond':inner=`<path d="M19 2L36 15L19 28L2 15Z"/>`;break;case 'hexagon':inner=`<path d="M10 3H28L37 15L28 27H10L1 15Z"/>`;break;case 'document':inner=`<path d="M7 2H26L33 9V28H7Z M26 2V9H33"/>`;break;case 'circle':inner=`<circle cx="19" cy="15" r="13"/>`;break;default:inner=`<rect x="3" y="4" width="32" height="22" rx="8"/>`;}return `<svg width="35" height="29" viewBox="0 0 38 30" aria-hidden="true"><g fill="${rgba(s,.13)}" stroke="${s}" stroke-width="1.8" stroke-linejoin="round">${inner}</g></svg>`}
 let previousPaletteClass=null;
-function renderPalette(){const list=$('palette'),oldScroll=list.scrollTop;list.innerHTML=graph.classes.map(c=>`<button class="palette-row ${c.key===activeClass?'active':''}" data-class="${c.key}" title="${c.key<=9?'Press '+c.key:'Press 0 then type '+c.key} to select ${escapeHtml(c.name)}"><span class="key ${c.key>9?'long-key':''}">${c.key}</span><span class="swatch-icon">${shapeMini(c.shape,c.color)}</span><span><span class="palette-name">${escapeHtml(c.name)}</span><span class="palette-sub" style="display:block">${escapeHtml(c.shape)}</span></span></button>`).join('');list.scrollTop=oldScroll;if(previousPaletteClass!==activeClass){list.querySelector(`[data-class="${activeClass}"]`)?.scrollIntoView({block:'nearest'});previousPaletteClass=activeClass}}
+function renderPalette(){const list=$('palette'),oldScroll=list.scrollTop;list.innerHTML=graph.classes.map(c=>`<button class="palette-row ${c.id===activeClass?'active':''}" data-class="${c.key}" title="${c.key<=9?'Press '+c.key:'Press 0 then type '+c.key} to select ${escapeHtml(c.name)}"><span class="key ${c.key>9?'long-key':''}">${c.key}</span><span class="swatch-icon">${shapeMini(c.shape,c.color)}</span><span><span class="palette-name">${escapeHtml(c.name)}</span><span class="palette-sub" style="display:block">${escapeHtml(c.shape)}</span></span></button>`).join('');list.scrollTop=oldScroll;if(previousPaletteClass!==activeClass){list.querySelector(`[data-class="${getClass(activeClass).key}"]`)?.scrollIntoView({block:'nearest'});previousPaletteClass=activeClass}}
 function wordwrap(t,max=23){const words=String(t||'Untitled').trim().split(/\s+/);const rows=[''];for(const word of words){const i=rows.length-1;if((rows[i]+' '+word).trim().length>max&&rows[i]&&rows.length<3){rows.push(word)}else{rows[i]=(rows[i]+' '+word).trim()}}return rows.map(r=>r.length>max+8?r.slice(0,max+5)+'…':r)}
 function dims(n){const c=getClass(n.classId),shape=n.shapeOverride||c.shape;let lines=wordwrap(n.name,24);const maxLen=Math.max(...lines.map(x=>x.length),10);let w=Math.max(154,Math.min(245,maxLen*8.0+42)),h=lines.length>1?94:77;if(shape==='diamond'){w=Math.max(w,214);h=124}else if(shape==='circle'){w=Math.max(w,153);h=153}else if(shape==='ellipse'){w=Math.max(w,184);h=Math.max(h,90)}else if(shape==='hexagon'){w+=22}return{w,h,lines,shape,color:hexSafe(n.colorOverride||c.color)}}
 function shapeSVG(n,d,selected){const{x,y}=n,{w,h,shape,color}=d,X=x-w/2,Y=y-h/2;let inner;if(shape==='rectangle')inner=`<rect x="${X}" y="${Y}" width="${w}" height="${h}" rx="3"/>`;else if(shape==='rounded')inner=`<rect x="${X}" y="${Y}" width="${w}" height="${h}" rx="15"/>`;else if(shape==='pill')inner=`<rect x="${X}" y="${Y}" width="${w}" height="${h}" rx="${h/2}"/>`;else if(shape==='ellipse')inner=`<ellipse cx="${x}" cy="${y}" rx="${w/2}" ry="${h/2}"/>`;else if(shape==='circle')inner=`<circle cx="${x}" cy="${y}" r="${h/2}"/>`;else if(shape==='diamond')inner=`<path d="M${x} ${Y}L${X+w} ${y}L${x} ${Y+h}L${X} ${y}Z"/>`;else if(shape==='hexagon')inner=`<path d="M${X+28} ${Y}H${X+w-28}L${X+w} ${y}L${X+w-28} ${Y+h}H${X+28}L${X} ${y}Z"/>`;else if(shape==='document')inner=`<path d="M${X+4} ${Y}H${X+w-23}L${X+w-4} ${Y+20}V${Y+h}H${X+4}Z"/><path d="M${X+w-23} ${Y}V${Y+20}H${X+w-4}" fill="none"/>`;else inner=`<rect x="${X}" y="${Y}" width="${w}" height="${h}" rx="15"/>`;
@@ -153,14 +164,14 @@ function edgeCoordinates(e){const a=getNode(e.from),b=getNode(e.to);if(!a||!b)re
 const mx=.25*s.x+.5*cx+.25*t.x,my=.25*s.y+.5*cy+.25*t.y;return {s,t,cx,cy,mx,my}}
 function render(){const edges=graph.edges.map(e=>{const co=edgeCoordinates(e);if(!co)return'';const {s,t,cx,cy,mx,my}=co;const sel=e.id===selectedEdge,lab=e.label||'',len=Math.min(230,lab.length*6.8+21);return `<g class="edge" data-edge-id="${escapeHtml(e.id)}"><path d="M${s.x},${s.y} Q${cx},${cy} ${t.x},${t.y}" stroke="transparent" stroke-width="20" fill="none" pointer-events="stroke"/><path d="M${s.x},${s.y} Q${cx},${cy} ${t.x},${t.y}" class="svg-edge-line ${sel?'selected':''}" marker-end="url(#${sel?'arrowhead-selected':'arrowhead'})" pointer-events="none"/>${lab?`<rect x="${mx-len/2}" y="${my-18}" width="${len}" height="24" rx="7" fill="#fff" stroke="${sel?'#9ab2ce':'#e3e8f0'}" stroke-width="1.2" pointer-events="none"/><text x="${mx}" y="${my-2}" text-anchor="middle" class="svg-edge-label">${escapeHtml(lab)}</text>`:''}</g>`}).join('');
 const nodes=graph.nodes.map(n=>{const d=dims(n),c=getClass(n.classId),selected=n.id===selectedNode,lines=d.lines,top=n.y-(lines.length===1?0:6),labelY=top+12;return `<g class="node" data-node-id="${escapeHtml(n.id)}">${selected?`<rect x="${n.x-d.w/2-6}" y="${n.y-d.h/2-6}" width="${d.w+12}" height="${d.h+12}" rx="21" fill="none" stroke="${rgba(d.color,.33)}" stroke-width="1.7" stroke-dasharray="5 5"/>`:''}${shapeSVG(n,d,selected)}<text x="${n.x}" y="${top-14}" text-anchor="middle" class="svg-class-label" fill="${d.color}">${escapeHtml(c.name.toUpperCase())}</text><text x="${n.x}" y="${labelY+(lines.length===3?-6:0)}" text-anchor="middle" class="svg-node-label">${lines.map((line,i)=>`<tspan x="${n.x}" dy="${i===0?0:19}">${escapeHtml(line)}</tspan>`).join('')}</text>${selected?`<g class="add-handle" data-plus-parent="${escapeHtml(n.id)}"><circle cx="${n.x+d.w/2+13}" cy="${n.y}" r="14" class="node-plus"/><text x="${n.x+d.w/2+13}" y="${n.y+5}" text-anchor="middle" class="node-plus-text">+</text></g>`:''}</g>`}).join('');
-scene.setAttribute('transform',`translate(${panX} ${panY}) scale(${zoom})`);scene.innerHTML=edges+nodes;$('zoomInfo').textContent=Math.round(zoom*100)+'%';$('stats').textContent=`${graph.nodes.length} node${graph.nodes.length!==1?'s':''} · ${graph.edges.length} connection${graph.edges.length!==1?'s':''}`}
+scene.setAttribute('transform',`translate(${panX} ${panY}) scale(${zoom})`);scene.innerHTML=edges+nodes;$('zoomInfo').textContent=Math.round(zoom*100)+'%';$('stats').textContent=`${graph.nodes.length} node${graph.nodes.length!==1?'s':''} · ${graph.edges.length} connection${graph.edges.length!==1?'s':''}`;renderCursors()}
 function fitView(){const rect=workspace.getBoundingClientRect();if(!graph.nodes.length){zoom=1;panX=rect.width/2;panY=rect.height/2;render();return}const minX=Math.min(...graph.nodes.map(n=>n.x-dims(n).w/2))-70,maxX=Math.max(...graph.nodes.map(n=>n.x+dims(n).w/2))+70,minY=Math.min(...graph.nodes.map(n=>n.y-dims(n).h/2))-75,maxY=Math.max(...graph.nodes.map(n=>n.y+dims(n).h/2))+75;zoom=Math.max(.26,Math.min(1.3,Math.min((rect.width-80)/(maxX-minX),(rect.height-100)/(maxY-minY))));panX=rect.width/2-(minX+maxX)/2*zoom;panY=rect.height/2-(minY+maxY)/2*zoom;render()}
 function worldFromEvent(e){const r=svg.getBoundingClientRect();return {x:(e.clientX-r.left-panX)/zoom,y:(e.clientY-r.top-panY)/zoom}}
 function toScreen(x,y){return{x:x*zoom+panX,y:y*zoom+panY}}
 function zoomAt(factor,clientX,clientY){const r=svg.getBoundingClientRect(),sx=clientX-r.left,sy=clientY-r.top,wx=(sx-panX)/zoom,wy=(sy-panY)/zoom;zoom=Math.min(3,Math.max(.22,zoom*factor));panX=sx-wx*zoom;panY=sy-wy*zoom;render()}
 function selectNode(id){selectedNode=id;selectedEdge=null;if(id)lastNode=id;render()}
 function selectEdge(id){selectedEdge=id;selectedNode=null;render()}
-function chooseClass(n){if(!graph.classes.some(c=>c.key===n))return;activeClass=n;hideClassJump();if(selectedNode){commit(()=>{const node=getNode(selectedNode);if(node){node.classId=n;node.shapeOverride=null;node.colorOverride=null}})}else renderPalette();toastMsg(`Class ${n}: ${getClass(n).name}`)}
+function chooseClass(n){const cls=graph.classes.find(c=>c.key===n);if(!cls)return;activeClass=cls.id;hideClassJump();if(selectedNode){commit(()=>{const node=getNode(selectedNode);if(node){node.classId=cls.id;node.shapeOverride=null;node.colorOverride=null}})}else renderPalette();toastMsg(`Class ${n}: ${cls.name}`)}
 function openEditor(nodeId,edgeId=null){if(!mayEdit())return;hideContext();const n=getNode(nodeId);if(!n)return;edit={type:'node',nodeId,edgeId};$('quickTitle').textContent=edgeId?'NEW CONNECTED NODE':'EDIT NODE';$('nodeNameInput').value=n.name==='New node'?'':n.name;const edge=graph.edges.find(e=>e.id===edgeId);$('relationshipInput').value=edge?.label||'';$('editRelBox').style.display=edge?'block':'none';const p=toScreen(n.x,n.y),r=workspace.getBoundingClientRect();let left=Math.max(12,Math.min(r.width-300,p.x+18)),top=Math.max(70,Math.min(r.height-175,p.y-40));$('quickedit').style.left=left+'px';$('quickedit').style.top=top+'px';$('quickedit').classList.add('show');setTimeout(()=>{$('nodeNameInput').focus();$('nodeNameInput').select()},0)}
 function openEdgeEditor(id){if(!mayEdit())return;hideContext();const edge=graph.edges.find(e=>e.id===id);if(!edge)return;const pos=edgeCoordinates(edge);edit={type:'edge',edgeId:id};$('quickTitle').textContent='EDIT RELATIONSHIP';$('nodeNameInput').value=edge.label||'';$('editRelBox').style.display='none';document.querySelector('label[for="nodeNameInput"]').textContent='Relationship label';const p=toScreen(pos.mx,pos.my),r=workspace.getBoundingClientRect();$('quickedit').style.left=Math.max(10,Math.min(r.width-298,p.x-130))+'px';$('quickedit').style.top=Math.max(60,Math.min(r.height-170,p.y+12))+'px';$('quickedit').classList.add('show');setTimeout(()=>{$('nodeNameInput').focus();$('nodeNameInput').select()},0)}
 function closeEditor(save=true){if(!edit)return;const old=edit;const v=$('nodeNameInput').value.trim(),rel=$('relationshipInput').value.trim();edit=null;$('quickedit').classList.remove('show');document.querySelector('label[for="nodeNameInput"]').textContent='Node label';svg.focus({preventScroll:true});if(!save)return;if(old.type==='node'){const node=getNode(old.nodeId),edge=graph.edges.find(e=>e.id===old.edgeId);if(node&&((v&&node.name!==v)||(edge&&edge.label!==rel)))commit(()=>{node.name=v||node.name;if(edge)edge.label=rel})}else{const edge=graph.edges.find(e=>e.id===old.edgeId);if(edge&&edge.label!==v)commit(()=>{edge.label=v})}}
@@ -169,16 +180,16 @@ function newChild(parentId){const p=getNode(parentId);if(!p){const r=workspace.g
 function connectNodes(from,to){if(!mayEdit())return;if(!from||!to||from===to)return;if(graph.edges.some(e=>e.from===from&&e.to===to)){toastMsg('Connection already exists');return}const id=uid('e');commit(()=>graph.edges.push({id,from,to,label:''}));connectionFrom=null;selectEdge(id);openEdgeEditor(id)}
 function removeSelection(){if(selectedNode){const id=selectedNode;commit(()=>{graph.nodes=graph.nodes.filter(n=>n.id!==id);graph.edges=graph.edges.filter(e=>e.from!==id&&e.to!==id)});selectedNode=null;if(lastNode===id)lastNode=graph.nodes.at(-1)?.id||null}else if(selectedEdge){const id=selectedEdge;commit(()=>{graph.edges=graph.edges.filter(e=>e.id!==id)});selectedEdge=null}render()}
 function toastMsg(t){const el=$('toast');el.textContent=t;el.classList.add('visible');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('visible'),1500)}
-function showContext(e,kind,id){if(!mayEdit())return;closeEditor();const x=e.clientX-workspace.getBoundingClientRect().left,y=e.clientY-workspace.getBoundingClientRect().top;contextTarget={kind,id};const ctx=$('context');if(kind==='node'){const n=getNode(id);if(!n)return;selectNode(id);const d=dims(n);ctx.innerHTML=`<h3>Node properties</h3><div class="field-label">Label</div><input type="text" id="ctxLabel" value="${escapeHtml(n.name)}" maxlength="110"><div class="field-label">Node class · keys 1–9</div><div class="class-picker">${graph.classes.slice(0,9).map(c=>`<button class="class-option ${n.classId===c.key?'on':''}" data-set-class="${c.key}" title="${escapeHtml(c.name)}" style="color:${hexSafe(c.color)}">${c.key}</button>`).join('')}</div><select id="ctxClassSelect" aria-label="Choose any node class">${graph.classes.map(c=>`<option value="${c.key}" ${n.classId===c.key?'selected':''}>${c.key} · ${escapeHtml(c.name)}</option>`).join('')}</select><div class="field-label">Shape</div><div class="shape-picker">${SHAPES.map(s=>`<button class="shape-option ${d.shape===s?'on':''}" data-set-shape="${s}" title="${s}">${shapeMini(s,'#6e8199')}</button>`).join('')}</div><div class="field-label">Colour</div><div class="color-picker">${['#e05a72','#8c77cf','#d6a642','#4b9dce','#38a99c','#79a948','#637dd6','#475569'].map(s=>`<button class="color-option" data-set-color="${s}" title="${s}"><i style="background:${s}"></i></button>`).join('')}<input id="ctxCustomColor" type="color" title="Custom colour" value="${d.color}" style="height:25px;width:28px;padding:0;border:0;background:transparent;cursor:pointer"></div><div class="context-actions"><button data-node-action="connect">Connect</button><button data-node-action="child">Add child</button><button class="danger" data-node-action="delete">Delete</button></div>`}
+function showContext(e,kind,id){if(!mayEdit())return;closeEditor();const x=e.clientX-workspace.getBoundingClientRect().left,y=e.clientY-workspace.getBoundingClientRect().top;contextTarget={kind,id};const ctx=$('context');if(kind==='node'){const n=getNode(id);if(!n)return;selectNode(id);const d=dims(n);ctx.innerHTML=`<h3>Node properties</h3><div class="field-label">Label</div><input type="text" id="ctxLabel" value="${escapeHtml(n.name)}" maxlength="110"><div class="field-label">Node class · keys 1–9</div><div class="class-picker">${graph.classes.slice(0,9).map(c=>`<button class="class-option ${n.classId===c.id?'on':''}" data-set-class="${c.key}" title="${escapeHtml(c.name)}" style="color:${hexSafe(c.color)}">${c.key}</button>`).join('')}</div><select id="ctxClassSelect" aria-label="Choose any node class">${graph.classes.map(c=>`<option value="${c.key}" ${n.classId===c.id?'selected':''}>${c.key} · ${escapeHtml(c.name)}</option>`).join('')}</select><div class="field-label">Shape</div><div class="shape-picker">${SHAPES.map(s=>`<button class="shape-option ${d.shape===s?'on':''}" data-set-shape="${s}" title="${s}">${shapeMini(s,'#6e8199')}</button>`).join('')}</div><div class="field-label">Colour</div><div class="color-picker">${['#e05a72','#8c77cf','#d6a642','#4b9dce','#38a99c','#79a948','#637dd6','#475569'].map(s=>`<button class="color-option" data-set-color="${s}" title="${s}"><i style="background:${s}"></i></button>`).join('')}<input id="ctxCustomColor" type="color" title="Custom colour" value="${d.color}" style="height:25px;width:28px;padding:0;border:0;background:transparent;cursor:pointer"></div><div class="context-actions"><button data-node-action="connect">Connect</button><button data-node-action="child">Add child</button><button class="danger" data-node-action="delete">Delete</button></div>`}
 else{const edge=graph.edges.find(e=>e.id===id);if(!edge)return;selectEdge(id);ctx.innerHTML=`<h3>Relationship properties</h3><div class="field-label">Relationship label</div><input type="text" id="ctxLabel" value="${escapeHtml(edge.label)}" placeholder="e.g. DEPENDS_ON" maxlength="90"><div class="context-actions"><button data-edge-action="reverse">Reverse direction</button><button class="danger" data-edge-action="delete">Delete</button></div>`}
 ctx.style.left=Math.max(8,Math.min(workspace.clientWidth-295,x))+'px';ctx.style.top=Math.max(8,Math.min(workspace.clientHeight-390,y))+'px';ctx.classList.add('show')}
 function hideContext(){const wasFocused=$('context').contains(document.activeElement);$('context').classList.remove('show');contextTarget=null;if(wasFocused)svg.focus({preventScroll:true})}
-function setMenuValue(attr,value){if(!contextTarget||contextTarget.kind!=='node')return;let id=contextTarget.id;commit(()=>{const n=getNode(id);if(attr==='class'){n.classId=Number(value);n.colorOverride=null;n.shapeOverride=null;activeClass=Number(value)}if(attr==='shape')n.shapeOverride=value;if(attr==='color')n.colorOverride=hexSafe(value)});hideContext()}
+function setMenuValue(attr,value){if(!contextTarget||contextTarget.kind!=='node')return;let id=contextTarget.id;commit(()=>{const n=getNode(id);if(attr==='class'){const cls=graph.classes.find(c=>c.key===Number(value));if(!cls)return;n.classId=cls.id;n.colorOverride=null;n.shapeOverride=null;activeClass=cls.id}if(attr==='shape')n.shapeOverride=value;if(attr==='color')n.colorOverride=hexSafe(value)});hideContext()}
 $('context').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||!contextTarget)return;const d=b.dataset;if(d.setClass)setMenuValue('class',d.setClass);else if(d.setShape)setMenuValue('shape',d.setShape);else if(d.setColor)setMenuValue('color',d.setColor);else if(d.nodeAction){const id=contextTarget.id;hideContext();if(d.nodeAction==='delete'){selectNode(id);removeSelection()}else if(d.nodeAction==='child')newChild(id);else{connectionFrom=id;toastMsg('Shift-click another node to connect')}}else if(d.edgeAction){const id=contextTarget.id;hideContext();if(d.edgeAction==='delete'){selectEdge(id);removeSelection()}else commit(()=>{const edge=graph.edges.find(e=>e.id===id);[edge.from,edge.to]=[edge.to,edge.from]})}});
 $('context').addEventListener('change',e=>{if(!contextTarget)return;if(e.target.id==='ctxCustomColor'){setMenuValue('color',e.target.value)}else if(e.target.id==='ctxClassSelect'){setMenuValue('class',e.target.value)}else if(e.target.id==='ctxLabel'){const id=contextTarget.id,kind=contextTarget.kind,val=e.target.value.trim();if(kind==='node'&&getNode(id)&&val&&getNode(id).name!==val)commit(()=>getNode(id).name=val);if(kind==='edge'){const edge=graph.edges.find(e=>e.id===id);if(edge&&edge.label!==val)commit(()=>edge.label=val)}hideContext()}});
 $('context').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='ctxLabel'){e.preventDefault();e.target.dispatchEvent(new Event('change',{bubbles:true}))}});
 $('quickedit').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeEditor();return}if(e.key==='Enter'){e.preventDefault();if(edit?.type==='node'&&e.target.id==='nodeNameInput'&&edit.edgeId){$('relationshipInput').focus();$('relationshipInput').select()}else closeEditor()}});
-svg.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==1)return;if(!mayEdit(false)){const p=worldFromEvent(e);drag={kind:'pan',x:panX,y:panY,clientX:e.clientX,clientY:e.clientY};svg.setPointerCapture(e.pointerId);return;}hideContext();if(edit&&!e.target.closest('.quickedit'))closeEditor();const plus=e.target.closest('[data-plus-parent]');if(plus){e.stopPropagation();newChild(plus.dataset.plusParent);return}const ng=e.target.closest('[data-node-id]'),eg=e.target.closest('[data-edge-id]');if(ng&&e.button===0){const id=ng.dataset.nodeId;if(e.shiftKey||connectionFrom){const from=connectionFrom||selectedNode;if(from&&from!==id){connectNodes(from,id);return}}selectNode(id);const n=getNode(id);drag={kind:'node',id,original:JSON.stringify(graph),start:worldFromEvent(e),x:n.x,y:n.y,moved:false};svg.setPointerCapture(e.pointerId);e.preventDefault()}else if(eg&&e.button===0){selectEdge(eg.dataset.edgeId)}else{if(e.button===0){selectedNode=null;selectedEdge=null;render()}drag={kind:'pan',x:panX,y:panY,clientX:e.clientX,clientY:e.clientY};svg.classList.add('panning');svg.setPointerCapture(e.pointerId);e.preventDefault()}});
+svg.addEventListener('pointerdown',e=>{if(e.button!==0&&e.button!==1)return;if(!mayEdit(false)){const p=worldFromEvent(e);drag={kind:'pan',x:panX,y:panY,clientX:e.clientX,clientY:e.clientY};svg.setPointerCapture(e.pointerId);return;}hideContext();if(edit&&!e.target.closest('.quickedit'))closeEditor();const plus=e.target.closest('[data-plus-parent]');if(plus){e.stopPropagation();newChild(plus.dataset.plusParent);return}const ng=e.target.closest('[data-node-id]'),eg=e.target.closest('[data-edge-id]');if(ng&&e.button===0){const id=ng.dataset.nodeId;if(e.shiftKey||connectionFrom){const from=connectionFrom||selectedNode;if(from&&from!==id){connectNodes(from,id);return}}selectNode(id);const n=getNode(id);drag={kind:'node',id,original:JSON.stringify(graph),start:worldFromEvent(e),x:n.x,y:n.y,moved:false};svg.setPointerCapture(e.pointerId)}else if(eg&&e.button===0){selectEdge(eg.dataset.edgeId)}else{if(e.button===0){selectedNode=null;selectedEdge=null;render()}drag={kind:'pan',x:panX,y:panY,clientX:e.clientX,clientY:e.clientY};svg.classList.add('panning');svg.setPointerCapture(e.pointerId)}});
 svg.addEventListener('pointermove',e=>{if(!drag)return;if(drag.kind==='node'){const p=worldFromEvent(e),n=getNode(drag.id);if(!n)return;const dx=p.x-drag.start.x,dy=p.y-drag.start.y;if(Math.hypot(dx,dy)>1)drag.moved=true;n.x=drag.x+dx;n.y=drag.y+dy;render()}else if(drag.kind==='pan'){panX=drag.x+e.clientX-drag.clientX;panY=drag.y+e.clientY-drag.clientY;render()}});
 function endDrag(){if(drag?.kind==='node'&&drag.moved){if(room.mode==='local'){history.push(drag.original);if(history.length>70)history.shift();future=[]}persist();updateButtons();if(room.mode==='live')publishGraphDiff(JSON.parse(drag.original),graph)}drag=null;svg.classList.remove('panning')}
 svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);window.addEventListener('blur',endDrag);
@@ -191,8 +202,8 @@ function renderClassModal(focusKey=null){
  $('classCount').textContent=`${graph.classes.length} total`;
  const html=graph.classes.map(c=>{
   const candidate=pendingStyle?.key===c.key?pendingStyle.candidate:c;
-  const conflicting=pendingStyle?.key===c.key?getClass(pendingStyle.matchKey):null;
-  const used=graph.nodes.filter(n=>n.classId===c.key).length;
+  const conflicting=pendingStyle?.key===c.key?classByKey(pendingStyle.matchKey):null;
+  const used=graph.nodes.filter(n=>n.classId===c.id).length;
   return `<div class="modal-row ${conflicting?'has-conflict':''}" data-modal-class="${c.key}"><span class="key">${c.key}</span><input type="text" data-classname="${c.key}" value="${escapeHtml(c.name)}" aria-label="Class ${c.key} name" maxlength="34"><select data-classshape="${c.key}" aria-label="Class ${c.key} shape">${SHAPES.map(shape=>`<option value="${shape}" ${shape===candidate.shape?'selected':''}>${shape[0].toUpperCase()+shape.slice(1)}</option>`).join('')}</select><input type="color" data-classcolor="${c.key}" value="${hexSafe(candidate.color)}" aria-label="Class ${c.key} colour"><button class="class-delete" data-delete-class="${c.key}" title="Delete class ${c.key}${used?' ('+used+' nodes)':''}" aria-label="Delete class ${c.key}" ${graph.classes.length===1?'disabled':''}>×</button>${conflicting?`<div class="class-collision" role="alert"><span><strong>Duplicate style.</strong> This colour and shape are already used by <strong>${escapeHtml(conflicting.name)} (#${conflicting.key})</strong>. Choose a different combination or keep it anyway.</span><span class="collision-actions"><button data-cancel-style="${c.key}">Change style</button><button class="approve" data-approve-style="${c.key}">Use anyway</button></span></div>`:''}</div>`
  }).join('');
  $('modalGrid').innerHTML=html;
@@ -200,33 +211,33 @@ function renderClassModal(focusKey=null){
 }
 function openClassModal(focusKey=null){if(!mayEdit())return;hideClassJump();renderClassModal(focusKey);$('modalBackdrop').classList.add('show')}
 function closeClassModal(){if(pendingStyle){const warning=$('modalGrid').querySelector(`[data-modal-class="${pendingStyle.key}"] .class-collision`);warning?.scrollIntoView({block:'center'});warning?.querySelector('button.approve')?.focus();return} $('modalBackdrop').classList.remove('show');svg.focus({preventScroll:true});renderAll()}
-function addClass(){if(!mayEdit())return;pendingStyle=null;const style=unusedStyle(),key=graph.classes.length+1;commit(()=>graph.classes.push({key,name:`Class ${key}`,...style}));renderClassModal(key);toastMsg(`Added class ${key}`)}
-function deleteClass(key){if(!mayEdit())return;const c=getClass(key),count=graph.nodes.filter(n=>n.classId===key).length;if(!c||graph.classes.length===1)return;
- const fallback=graph.classes.find(x=>x.key!==key),msg=count?`Delete class ${key} (${c.name})?\n\n${count} node${count!==1?'s':''} will be reassigned to ${fallback.name} (#${fallback.key}).`:`Delete class ${key} (${c.name})?`;
+function addClass(){if(!mayEdit())return;pendingStyle=null;const style=unusedStyle(),key=graph.classes.length+1;commit(()=>graph.classes.push({id:uid('c'),key,name:`Class ${key}`,...style}));renderClassModal(key);toastMsg(`Added class ${key}`)}
+function deleteClass(key){if(!mayEdit())return;const c=graph.classes.find(x=>x.key===key),count=c?graph.nodes.filter(n=>n.classId===c.id).length:0;if(!c||graph.classes.length===1)return;
+ const fallback=graph.classes.find(x=>x.id!==c.id),msg=count?`Delete class ${key} (${c.name})?\n\n${count} node${count!==1?'s':''} will be reassigned to ${fallback.name} (#${fallback.key}).`:`Delete class ${key} (${c.name})?`;
  if(!confirm(msg))return;
- pendingStyle=null;commit(()=>{const oldClasses=graph.classes.filter(x=>x.key!==key),keyMap=new Map(oldClasses.map((x,i)=>[x.key,i+1]));const fallbackKey=keyMap.get(fallback.key);for(const n of graph.nodes)n.classId=n.classId===key?fallbackKey:keyMap.get(n.classId);graph.classes=oldClasses.map((x,i)=>({...x,key:i+1}));activeClass=activeClass===key?fallbackKey:keyMap.get(activeClass)});renderClassModal();toastMsg('Class removed; remaining classes renumbered')}
+ pendingStyle=null;commit(()=>{graph.classes=graph.classes.filter(x=>x.id!==c.id).map((x,i)=>({...x,key:i+1}));for(const n of graph.nodes)if(n.classId===c.id)n.classId=fallback.id;if(activeClass===c.id)activeClass=fallback.id});renderClassModal();toastMsg('Class removed; affected nodes reassigned')}
 $('modalGrid').addEventListener('change',e=>{
  const el=e.target,key=Number(el.dataset.classname||el.dataset.classshape||el.dataset.classcolor);if(!key)return;
  const field=el.dataset.classname?'name':el.dataset.classshape?'shape':'color';
- if(field==='name'){const v=el.value.trim()||`Class ${key}`;if(getClass(key).name!==v)commit(()=>getClass(key).name=v);renderClassModal();return}
- const base=pendingStyle?.key===key?pendingStyle.candidate:getClass(key);
+ if(field==='name'){const v=el.value.trim()||`Class ${key}`;if(classByKey(key).name!==v)commit(()=>classByKey(key).name=v);renderClassModal();return}
+ const base=pendingStyle?.key===key?pendingStyle.candidate:classByKey(key);
  const candidate={...base,[field]:field==='color'?hexSafe(el.value):el.value};
  const conflict=checkCollision(candidate);
  if(conflict){pendingStyle={key,candidate,matchKey:conflict.key};renderClassModal();const warning=$('modalGrid').querySelector(`[data-modal-class="${key}"] .class-collision`);warning?.scrollIntoView({block:'nearest'});return}
  pendingStyle=null;
- commit(()=>{Object.assign(getClass(key),{shape:candidate.shape,color:candidate.color})});renderClassModal();
+ commit(()=>{Object.assign(classByKey(key),{shape:candidate.shape,color:candidate.color})});renderClassModal();
 });
 $('modalGrid').addEventListener('click',e=>{
  const target=e.target.closest('button');if(!target)return;
  if(target.dataset.deleteClass){deleteClass(Number(target.dataset.deleteClass));return}
  if(target.dataset.cancelStyle){pendingStyle=null;renderClassModal();return}
- if(target.dataset.approveStyle){if(!pendingStyle||pendingStyle.key!==Number(target.dataset.approveStyle))return;const {key,candidate}=pendingStyle;pendingStyle=null;commit(()=>{Object.assign(getClass(key),{shape:candidate.shape,color:candidate.color})});renderClassModal();toastMsg('Duplicate style saved')}
+ if(target.dataset.approveStyle){if(!pendingStyle||pendingStyle.key!==Number(target.dataset.approveStyle))return;const {key,candidate}=pendingStyle;pendingStyle=null;commit(()=>{Object.assign(classByKey(key),{shape:candidate.shape,color:candidate.color})});renderClassModal();toastMsg('Duplicate style saved')}
 });
 $('editClasses').addEventListener('click',()=>openClassModal());$('closeClasses').addEventListener('click',closeClassModal);
 $('addClass').addEventListener('click',addClass);
 $('sidebarAddClass').addEventListener('click',()=>{openClassModal();addClass()});
 $('modalBackdrop').addEventListener('pointerdown',e=>{if(e.target===$('modalBackdrop'))closeClassModal()});
-$('resetClasses').addEventListener('click',()=>{if(confirm('Restore the 7 original classes? Any extra classes will be removed, and nodes in those classes will be reassigned to Service.')){pendingStyle=null;commit(()=>{graph.nodes.forEach(n=>{if(n.classId>7){n.classId=1;n.colorOverride=null;n.shapeOverride=null}});graph.classes=structuredClone(DEFAULT_CLASSES);activeClass=1});renderClassModal()}});
+$('resetClasses').addEventListener('click',()=>{if(confirm('Restore the 7 original classes? Any extra classes will be removed, and nodes in those classes will be reassigned to Service.')){pendingStyle=null;commit(()=>{const keep=new Set(DEFAULT_CLASSES.map(c=>c.id));graph.nodes.forEach(n=>{if(!keep.has(n.classId)){n.classId='cls-service';n.colorOverride=null;n.shapeOverride=null}});graph.classes=structuredClone(DEFAULT_CLASSES);activeClass='cls-service'});renderClassModal()}});
 function openClassJump(){$('classJump').classList.add('show');$('classJumpInput').value='';$('jumpHelp').textContent=`Choose a class from 1–${graph.classes.length}`;$('classJumpInput').focus()}
 function hideClassJump(){$('classJump').classList.remove('show')}
 function jumpToClass(){const n=Number($('classJumpInput').value);if(!Number.isInteger(n)||n<1||n>graph.classes.length){$('jumpHelp').textContent=`Enter a number from 1–${graph.classes.length}`;return}chooseClass(n)}
@@ -237,16 +248,179 @@ $('undoBtn').addEventListener('click',undo);$('redoBtn').addEventListener('click
 $('clearBtn').addEventListener('click',()=>{if(confirm('Clear all nodes and relationships? Your node classes will stay.')){closeEditor();commit(()=>{graph.nodes=[];graph.edges=[]});selectedNode=null;selectedEdge=null;lastNode=null;fitView()}});
 $('exportBtn').addEventListener('click',e=>{e.stopPropagation();$('exportMenu').classList.toggle('show')});$('exportMenu').addEventListener('click',e=>{const act=e.target.closest('[data-export]')?.dataset.export;$('exportMenu').classList.remove('show');if(act==='json')exportJson();if(act==='svg')exportSvg();if(act==='png')exportPng();if(act==='import')$('importFile').click()});
 function download(data,name,mime){const blob=data instanceof Blob?data:new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
-function exportJson(){download(JSON.stringify({...graph,format:'nodeboard',version:1},null,2),'nodeboard-graph.json','application/json')}
+function exportJson(){download(JSON.stringify({...graph,format:'nodeboard',version:1},null,2),room.mode==='local'?'nodeboard-graph.json':'nodeboard-room-backup.json','application/json')}
 function makeSvg(){let minX=-300,minY=-160,maxX=300,maxY=160;if(graph.nodes.length){minX=Math.min(...graph.nodes.map(n=>n.x-dims(n).w/2))-70;maxX=Math.max(...graph.nodes.map(n=>n.x+dims(n).w/2))+70;minY=Math.min(...graph.nodes.map(n=>n.y-dims(n).h/2))-70;maxY=Math.max(...graph.nodes.map(n=>n.y+dims(n).h/2))+70}const w=Math.ceil(maxX-minX),h=Math.ceil(maxY-minY);const group=scene.cloneNode(true);group.removeAttribute('transform');group.querySelectorAll('.add-handle').forEach(n=>n.remove());group.querySelectorAll('.svg-shape.selected').forEach(n=>n.classList.remove('selected'));const xml=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${minX} ${minY} ${w} ${h}"><defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0 0L8 4L0 8Z" fill="#8996a8"/></marker><filter id="node-shadow" x="-20%" y="-40%" width="140%" height="190%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#203144" flood-opacity=".09"/></filter></defs><style>.svg-edge-line{fill:none;stroke:#8996a8;stroke-width:2;stroke-linecap:round}.svg-edge-label{font:800 10.5px Arial,sans-serif;fill:#556377;letter-spacing:.3px}.svg-node-label{font:750 14px Arial,sans-serif;fill:#283547}.svg-class-label{font:850 9.5px Arial,sans-serif;letter-spacing:1.3px}.svg-shape{stroke-width:2;stroke-linejoin:round}</style><rect x="${minX}" y="${minY}" width="${w}" height="${h}" fill="white"/>${group.outerHTML}</svg>`;return {xml,w,h}}
 function exportSvg(){download(makeSvg().xml,'nodeboard-graph.svg','image/svg+xml;charset=utf-8')}
 function exportPng(){const {xml,w,h}=makeSvg(),url=URL.createObjectURL(new Blob([xml],{type:'image/svg+xml;charset=utf-8'})),img=new Image();img.onload=()=>{const scale=Math.min(3,Math.sqrt(16000000/(w*h)));const c=document.createElement('canvas');c.width=Math.round(w*scale);c.height=Math.round(h*scale);const ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);c.toBlob(blob=>{if(blob)download(blob,'nodeboard-graph.png','image/png');URL.revokeObjectURL(url)},'image/png')};img.onerror=()=>{URL.revokeObjectURL(url);toastMsg('PNG failed — try SVG')};img.src=url}
-$('importFile').addEventListener('change',async e=>{if(!mayEdit())return;const f=e.target.files?.[0];if(!f)return;try{const g=JSON.parse(await f.text());if(!validateGraph(g)||!g.nodes.every(n=>Number.isFinite(n.x)&&Number.isFinite(n.y)&&typeof n.id==='string'&&typeof n.name==='string'))throw Error('Invalid graph format');commit(()=>{graph={nodes:g.nodes,edges:g.edges,classes:g.classes}});selectedNode=null;selectedEdge=null;lastNode=graph.nodes.at(-1)?.id||null;fitView();toastMsg('Graph imported')}catch(err){alert('Could not import this graph JSON. '+err.message)}e.target.value=''});
+$('importFile').addEventListener('change',async e=>{if(!mayEdit())return;const f=e.target.files?.[0];if(!f)return;try{const g=migrateLegacyGraph(JSON.parse(await f.text()));if(!validateGraph(g)||!g.nodes.every(n=>Number.isFinite(n.x)&&Number.isFinite(n.y)&&typeof n.id==='string'&&typeof n.name==='string'))throw Error('Invalid graph format');commit(()=>{graph={nodes:g.nodes,edges:g.edges,classes:g.classes}});selectedNode=null;selectedEdge=null;lastNode=graph.nodes.at(-1)?.id||null;reconcileClass();fitView();toastMsg('Graph imported')}catch(err){alert('Could not import this graph JSON. '+err.message)}e.target.value=''});
 document.addEventListener('pointerdown',e=>{if(!e.target.closest('#context')&&!e.target.closest('#canvas'))hideContext();if(edit&&!e.target.closest('#quickedit')&&!e.target.closest('#canvas'))closeEditor();if(!e.target.closest('.dropdown-wrap'))$('exportMenu').classList.remove('show');if(!e.target.closest('#classJump'))hideClassJump()});
-document.addEventListener('keydown',e=>{const target=e.target,typing=target.matches('input, textarea, select, [contenteditable="true"]');if(typing){if(e.key==='Escape'&&target.closest('#context'))hideContext();return}if($('modalBackdrop').classList.contains('show')){if(e.key==='Escape')closeClassModal();return}if(e.ctrlKey||e.metaKey){if(e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}else if(e.key.toLowerCase()==='y'){e.preventDefault();redo()}else if(e.key.toLowerCase()==='s'){e.preventDefault();exportJson()}return}if(/^[1-9]$/.test(e.key)){e.preventDefault();chooseClass(Number(e.key));return}if(e.key==='0'){e.preventDefault();openClassJump();return}if(e.key==='Tab'){e.preventDefault();closeEditor();newChild(selectedNode||lastNode);return}if(e.key==='Enter'){if(selectedNode)openEditor(selectedNode);else if(selectedEdge)openEdgeEditor(selectedEdge);return}if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();removeSelection();return}if(e.key==='Escape'){hideClassJump();hideContext();closeEditor();connectionFrom=null;selectedNode=null;selectedEdge=null;render();return}if(e.key.toLowerCase()==='f'){fitView();return}if(e.key.toLowerCase()==='c'&&selectedNode){connectionFrom=selectedNode;toastMsg('Shift-click a target node to connect')} });
+document.addEventListener('keydown',e=>{const target=e.target,typing=target.matches('input, textarea, select, [contenteditable="true"]');if(typing){if(e.key==='Escape'){if(target.closest('#context'))hideContext();else if(target.closest('#modalBackdrop'))closeClassModal();else if(target.closest('#collabBackdrop'))closeCollab()}return}if($('collabBackdrop').classList.contains('show')){if(e.key==='Escape')closeCollab();return}if($('modalBackdrop').classList.contains('show')){if(e.key==='Escape')closeClassModal();return}if(e.ctrlKey||e.metaKey){if(e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo()}else if(e.key.toLowerCase()==='y'){e.preventDefault();redo()}else if(e.key.toLowerCase()==='s'){e.preventDefault();exportJson()}return}if(/^[1-9]$/.test(e.key)){e.preventDefault();chooseClass(Number(e.key));return}if(e.key==='0'){e.preventDefault();openClassJump();return}if(e.key==='Tab'){e.preventDefault();closeEditor();newChild(selectedNode||lastNode);return}if(e.key==='Enter'){if(selectedNode)openEditor(selectedNode);else if(selectedEdge)openEdgeEditor(selectedEdge);return}if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();removeSelection();return}if(e.key==='Escape'){hideClassJump();hideContext();closeEditor();connectionFrom=null;selectedNode=null;selectedEdge=null;render();return}if(e.key.toLowerCase()==='f'){fitView();return}if(e.key.toLowerCase()==='c'&&selectedNode){connectionFrom=selectedNode;toastMsg('Shift-click a target node to connect')} });
 // Prevent edited fields from triggering global shortcuts; auto-save changes when the user leaves the field.
 window.addEventListener('beforeunload',()=>{if(edit)closeEditor();persist()});
-renderAll();requestAnimationFrame(fitView);window.addEventListener('resize',()=>render());
+
+// ===== Live collaboration =====
+const ROOM_SESSION_KEY='nodeboard-room-v1',CLIENT_ID_KEY='nodeboard-client-id';
+const roomClientId=(()=>{let id=null;try{id=localStorage.getItem(CLIENT_ID_KEY)}catch(_){ }if(!id){id=crypto.randomUUID();try{localStorage.setItem(CLIENT_ID_KEY,id)}catch(_){}}return id})();
+const room={mode:'local',role:null,sessionId:null,token:null,editToken:null,viewToken:null,ownerToken:null,ws:null,clientId:roomClientId,displayName:'',revision:0,classesRev:0,pending:[],participants:[],leaveIntentional:false,reconnectAttempts:0,reconnectTimer:null};
+const remoteCursors=new Map();
+let cursorSendAt=0;
+function renderCursors(){const layer=$('cursorLayer');
+ if(room.mode!=='live'){layer.innerHTML='';remoteCursors.clear();return}
+ const now=Date.now();
+ const html=[...remoteCursors.values()].filter(c=>now-c.ts<10000).map(c=>{const p=toScreen(c.x,c.y),col=participantColor(c.clientId);return `<g class="remote-cursor" transform="translate(${p.x} ${p.y})"><path d="M0 0L13 13L7 13.5L10 20L7.5 21L4.5 14.5L0 17Z" fill="${col}" stroke="#fff" stroke-width="1.4"/><text x="15" y="24" font-size="10" font-weight="800" fill="#fff" paint-order="stroke" stroke="${col}" stroke-width="6" stroke-linejoin="round">${escapeHtml(c.name)}</text></g>`}).join('');
+ if(layer.innerHTML!==html)layer.innerHTML=html}
+workspace.addEventListener('pointermove',e=>{if(room.mode!=='live')return;const now=Date.now();if(now-cursorSendAt<100)return;cursorSendAt=now;const p=worldFromEvent(e);sendRaw({type:'presence',x:Math.round(p.x),y:Math.round(p.y),selection:selectedNode||selectedEdge||null})});
+setInterval(()=>{if(room.mode==='live')renderCursors()},3000);
+function mayEdit(announce=true){const ok=room.mode==='local'||(room.mode==='live'&&room.role==='editor'&&room.ws&&room.ws.readyState===WebSocket.OPEN);if(!ok&&announce){if(room.mode==='local')toastMsg('Editing unavailable');else if(room.role==='viewer'&&room.mode==='live')toastMsg('View-only invitation — editing disabled');else toastMsg('Not connected — editing paused')}return ok}
+function setLiveStatus(state,text){const el=$('liveStatus');el.className='live-status '+state;el.querySelector('span:last-child').textContent=text}
+function participantColor(id){let h=0;for(const ch of String(id))h=(h*31+ch.charCodeAt(0))>>>0;return hslHex(h%360,55,52)}
+function nameInitials(n){return String(n||'?').trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase()||'?'}
+function renderPresence(){const strip=$('presenceStrip');if(room.mode==='local'||!room.participants.length){strip.style.display='none';strip.innerHTML='';return}strip.style.display='flex';strip.innerHTML=room.participants.map(p=>`<span class="presence-item" title="${escapeHtml(p.name)} (${p.role})" style="background:${participantColor(p.clientId)}">${escapeHtml(nameInitials(p.name))}</span>`).join('')+`<span class="presence-count">${room.participants.length} online</span>`}
+function saveRoomSession(){try{sessionStorage.setItem(ROOM_SESSION_KEY,JSON.stringify({sessionId:room.sessionId,token:room.token,editToken:room.editToken,viewToken:room.viewToken,ownerToken:room.ownerToken,displayName:room.displayName,pending:room.pending}))}catch(_){}}
+function loadRoomSession(){try{return JSON.parse(sessionStorage.getItem(ROOM_SESSION_KEY))}catch(_){return null}}
+function clearRoomSession(){try{sessionStorage.removeItem(ROOM_SESSION_KEY)}catch(_){}}
+function sendRaw(o){if(room.ws&&room.ws.readyState===WebSocket.OPEN)room.ws.send(JSON.stringify(o))}
+function sendOps(ops){const opId=uid('op');room.pending.push({opId,ops});sendRaw({type:'ops',opId,baseClassesRev:room.classesRev,ops});persist();saveRoomSession()}
+function publishGraphDiff(prev,next){if(room.mode!=='live')return;const ops=[];
+ if(JSON.stringify(prev.classes)!==JSON.stringify(next.classes))ops.push({type:'classes.replace',classes:structuredClone(next.classes)});
+ const prevN=new Map(prev.nodes.map(n=>[n.id,n]));
+ const nextN=new Map(next.nodes.map(n=>[n.id,n]));
+ for(const [id] of prevN)if(!nextN.has(id))ops.push({type:'node.delete',id});
+ for(const [id,n] of nextN){const p=prevN.get(id);if(!p){ops.push({type:'node.upsert',node:structuredClone(n)});continue}if(JSON.stringify(p)!==JSON.stringify(n)){const patch={};for(const k of['x','y','name','classId','colorOverride','shapeOverride'])if(JSON.stringify(p[k])!==JSON.stringify(n[k]))patch[k]=n[k]??null;ops.push({type:'node.patch',id,patch})}}
+ const prevE=new Map(prev.edges.map(e=>[e.id,e]));
+ const nextE=new Map(next.edges.map(e=>[e.id,e]));
+ for(const [id] of prevE)if(!nextE.has(id))ops.push({type:'edge.delete',id});
+ for(const [id,e] of nextE){const p=prevE.get(id);if(!p){ops.push({type:'edge.upsert',edge:structuredClone(e)});continue}if(JSON.stringify(p)!==JSON.stringify(e)){const patch={};for(const k of['label','from','to'])if(p[k]!==e[k])patch[k]=e[k];ops.push({type:'edge.patch',id,patch})}}
+ if(ops.length)sendOps(ops)}
+function applyRemoteOps(ops){for(const op of ops){if(!op||typeof op.type!=='string')continue;
+ if(op.type==='classes.replace'){if(Array.isArray(op.classes))graph.classes=structuredClone(op.classes);continue}
+ const m=/^(node|edge)\.(upsert|patch|delete)$/.exec(op.type);if(!m)continue;
+ const entity=m[1],action=m[2],field=entity==='node'?'nodes':'edges',id=op.id||op[entity]?.id,list=graph[field],i=list.findIndex(x=>x.id===id);
+ if(action==='delete'){if(i>=0)list.splice(i,1);if(entity==='node')graph.edges=graph.edges.filter(e=>e.from!==id&&e.to!==id);continue}
+ if(action==='upsert'){const obj=op[entity];if(!obj||obj.id!==id)continue;const copy=structuredClone(obj);if(i>=0)list[i]=copy;else list.push(copy);continue}
+ if(i>=0&&op.patch&&typeof op.patch==='object')Object.assign(list[i],structuredClone(op.patch));}}
+function reconcileSelection(){selectedNode=getNode(selectedNode)?.id||null;selectedEdge=graph.edges.some(e=>e.id===selectedEdge)?selectedEdge:null;lastNode=graph.nodes.length?(getNode(lastNode)?lastNode:graph.nodes.at(-1).id):null}
+function handleRoomMessage(msg){
+ if(msg.type==='welcome'){room.mode='live';room.role=msg.role;room.revision=msg.revision;room.classesRev=msg.classesRev;room.reconnectAttempts=0;
+  if(msg.role==='editor')room.editToken=room.token;else room.viewToken=room.token;
+  graph=msg.graph;
+  const acked=new Set(Array.isArray(msg.acknowledgedOpIds)?msg.acknowledgedOpIds:[]);
+  room.pending=room.pending.filter(p=>!acked.has(p.opId));
+  for(const p of room.pending){applyRemoteOps(p.ops);sendRaw({type:'ops',opId:p.opId,baseClassesRev:room.classesRev,ops:p.ops})}
+  reconcileSelection();
+  room.participants=Array.isArray(msg.participants)?msg.participants:[];
+  $('projectTitle').textContent=msg.name||'Shared session';
+  setLiveStatus(msg.role==='viewer'?'viewer':'connected',msg.role==='viewer'?'Viewing live session':'Live · connected');
+  renderPresence();saveRoomSession();persist();renderAll();showCollabActive();return}
+ if(msg.type==='ack'){room.pending=room.pending.filter(p=>p.opId!==msg.opId);room.revision=msg.revision;room.classesRev=msg.classesRev;persist();saveRoomSession();return}
+ if(msg.type==='ops'){if(msg.clientId!==room.clientId){applyRemoteOps(msg.ops);reconcileSelection();persist();renderAll()}room.revision=msg.revision;room.classesRev=msg.classesRev;return}
+ if(msg.type==='presence'){room.participants=Array.isArray(msg.participants)?msg.participants:[];renderPresence();return}
+ if(msg.type==='cursor'){if(msg.clientId&&msg.clientId!==room.clientId){remoteCursors.set(msg.clientId,{clientId:msg.clientId,name:msg.name||'Guest',x:msg.x,y:msg.y,selection:msg.selection||null,ts:Date.now()});renderCursors()}return}
+ if(msg.type==='error'){if(msg.code==='CLASS_CONFLICT'){toastMsg('Node classes changed elsewhere — resyncing');reconnectRoom();return}
+  if(msg.code==='UNAUTHORIZED'){collabShowError(msg.message||'Invitation key rejected');leaveRoom(true);return}
+  if(msg.code==='SESSION_DELETED'){leaveRoom(true);toastMsg('Session was deleted by its owner');return}
+  toastMsg(msg.message||'Session error');return}}
+function connectRoom(){clearTimeout(room.reconnectTimer);room.reconnectTimer=null;
+ if(room.ws){try{room.ws.close()}catch(_){}}
+ const proto=location.protocol==='https:'?'wss':'ws';
+ const ws=new WebSocket(`${proto}://${location.host}/api/sessions/${encodeURIComponent(room.sessionId)}/ws`);
+ room.ws=ws;if(room.mode==='local')room.mode='connecting';
+ setLiveStatus('connecting','Connecting…');persist();updateButtons();
+ ws.onopen=()=>sendRaw({type:'auth',token:room.token,clientId:room.clientId,name:room.displayName,pendingOpIds:room.pending.map(p=>p.opId)});
+ ws.onmessage=e=>{let msg;try{msg=JSON.parse(e.data)}catch(_){return}handleRoomMessage(msg)};
+ ws.onclose=()=>{if(room.leaveIntentional||!room.sessionId)return;room.mode='disconnected';setLiveStatus('disconnected','Disconnected — retrying');persist();updateButtons();
+  const delay=Math.min(15000,1000*2**room.reconnectAttempts++);
+  room.reconnectTimer=setTimeout(()=>{if(room.sessionId&&!room.leaveIntentional)connectRoom()},delay)};
+ ws.onerror=()=>{try{ws.close()}catch(_){}}}
+function reconnectRoom(){room.reconnectAttempts=0;connectRoom()}
+function leaveRoom(silent=false){room.leaveIntentional=true;clearTimeout(room.reconnectTimer);room.reconnectTimer=null;
+ if(room.ws){try{room.ws.close()}catch(_){}room.ws=null}
+ clearRoomSession();
+ const local=loadLocalGraph();
+ graph=local;room.mode='local';room.role=null;room.sessionId=null;room.token=null;room.editToken=null;room.viewToken=null;room.ownerToken=null;room.pending=[];room.participants=[];room.revision=0;room.classesRev=0;room.leaveIntentional=false;room.reconnectAttempts=0;
+ selectedNode=null;selectedEdge=null;lastNode=graph.nodes.at(-1)?.id||null;history=[];future=[];
+ setLiveStatus('local','Local board');renderPresence();renderCursors();persist();renderAll();showCollabIdle();
+ if(!silent)toastMsg('Left session — local board restored')}
+function loadLocalGraph(){try{const old=JSON.parse(localStorage.getItem(STORAGE_KEY));if(validateGraph(old))return old}catch(_){}return structuredClone(sample)}
+function inviteLink(token){return `${location.origin}${location.pathname}#s=${room.sessionId}&key=${token}`}
+function parseInvite(text){text=String(text||'').trim();
+ let m=/^NB:([A-Za-z0-9_-]{8,120}):([0-9a-f]{32,120})$/i.exec(text);if(m)return{id:m[1],token:m[2].toLowerCase()};
+ try{const u=new URL(text);const h=new URLSearchParams(u.hash.replace(/^#/,''));const id=h.get('s'),key=h.get('key');if(id&&key)return{id,token:key.toLowerCase()}}catch(_){}
+ m=/[#?&]s=([A-Za-z0-9_-]{8,120})&key=([0-9a-f]{32,120})/i.exec(text);if(m)return{id:m[1],token:m[2].toLowerCase()};
+ return null}
+function collabShowError(msg){const el=$('collabError');if(!msg){el.hidden=true;el.textContent='';return}el.textContent=msg;el.hidden=false}
+function collabShowPanel(name){for(const p of['collabCreate','collabJoin','collabActive'])$(p).hidden=p!==name;$('collabTabs').style.display=(name==='collabActive')?'none':''}
+function showCollabIdle(){collabShowPanel(room.sessionId?'collabActive':'collabCreate');collabShowError('')}
+function showCollabActive(){if(!$('collabBackdrop').classList.contains('show'))return;
+ collabShowPanel('collabActive');collabShowError('');
+ $('collabSessionId').textContent=room.sessionId||'—';
+ $('collabAccess').textContent=room.role==='viewer'?'View-only':'Editor';
+ $('collabConnection').textContent=room.mode==='live'?`Connected as ${room.displayName||'Guest'} · ${room.participants.length} participant${room.participants.length!==1?'s':''}`:'Connecting…';
+ const editBlock=$('collabEditorLink').closest('.invite-block');
+ if(room.editToken){editBlock.hidden=false;$('collabEditorLink').value=inviteLink(room.editToken)}else editBlock.hidden=true;
+ if(room.viewToken){$('viewerInvite').hidden=false;$('collabViewerLink').value=inviteLink(room.viewToken)}else $('viewerInvite').hidden=true;
+ $('copyInviteCode').disabled=!room.token;
+ $('ownerControls').hidden=!room.ownerToken}
+function openCollab(){showCollabIdle();if(room.sessionId)showCollabActive();$('collabBackdrop').classList.add('show');setTimeout(()=>{(room.sessionId?$('collabLeaveBtn'):$('collabYourName')).focus()},0)}
+function closeCollab(){$('collabBackdrop').classList.remove('show');svg.focus({preventScroll:true})}
+async function copyText(value,label){try{await navigator.clipboard.writeText(value)}catch(_){const t=document.createElement('textarea');t.value=value;document.body.append(t);t.select();try{document.execCommand('copy')}catch(__){} t.remove()}toastMsg(label+' copied')}
+async function createSession(){if(room.mode!=='local')return;
+ const name=$('collabRoomName').value.trim()||'Untitled workshop';
+ const display=$('collabYourName').value.trim()||'Host';collabShowError('');
+ const btn=$('collabCreateBtn');btn.disabled=true;
+ try{const r=await fetch('/api/sessions',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,graph})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(data.error||`Could not create session (${r.status})`);
+  room.sessionId=data.id;room.editToken=data.editToken;room.viewToken=data.viewToken;room.ownerToken=data.ownerToken||null;room.token=data.editToken;room.displayName=display;room.mode='connecting';room.leaveIntentional=false;
+  $('projectTitle').textContent=name;setLiveStatus('connecting','Connecting…');persist();saveRoomSession();connectRoom();showCollabActive();
+ }catch(e){collabShowError(e.message||'Could not create session')}finally{btn.disabled=false}}
+function joinSession(){if(room.mode!=='local')return;
+ const invite=parseInvite($('collabCode').value);
+ if(!invite){collabShowError('That does not look like an invitation link or NB:session:key code.');return}
+ const display=$('collabJoinName').value.trim()||'Guest';collabShowError('');
+ room.sessionId=invite.id;room.token=invite.token;room.editToken=null;room.viewToken=null;room.ownerToken=null;room.displayName=display;room.mode='connecting';room.leaveIntentional=false;
+ setLiveStatus('connecting','Connecting…');persist();saveRoomSession();connectRoom();showCollabActive()}
+function wireCollab(){
+ $('collabBtn').addEventListener('click',openCollab);
+ $('collabClose').addEventListener('click',closeCollab);
+ $('collabBackdrop').addEventListener('pointerdown',e=>{if(e.target===$('collabBackdrop'))closeCollab()});
+ $('collabBackdrop').addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();closeCollab();return}
+  if(e.key==='Tab'){const focusables=[...$('collabBackdrop').querySelectorAll('button,input,textarea')].filter(el=>!el.disabled&&el.offsetParent!==null);if(!focusables.length)return;const first=focusables[0],last=focusables[focusables.length-1];
+   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});
+ for(const tab of document.querySelectorAll('[data-collab-tab]'))tab.addEventListener('click',()=>{for(const t of document.querySelectorAll('[data-collab-tab]'))t.classList.toggle('on',t===tab);collabShowPanel(tab.dataset.collabTab==='join'?'collabJoin':'collabCreate');collabShowError('')});
+ $('collabCreateBtn').addEventListener('click',createSession);
+ $('collabJoinBtn').addEventListener('click',joinSession);
+ $('collabCode').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();joinSession()}});
+ $('collabLeaveBtn').addEventListener('click',()=>leaveRoom());
+ $('copyInviteCode').addEventListener('click',()=>{if(room.sessionId&&room.token)copyText(`NB:${room.sessionId}:${room.token}`,'Invitation code')});
+ $('copyEditorLink').addEventListener('click',()=>{if(room.editToken)copyText(inviteLink(room.editToken),'Editor link')});
+ $('copyViewerLink').addEventListener('click',()=>{if(room.viewToken)copyText(inviteLink(room.viewToken),'Viewer link')});
+ $('rotateLinksBtn').addEventListener('click',async()=>{if(!room.ownerToken||!room.sessionId)return;
+  try{const r=await fetch(`/api/sessions/${room.sessionId}/rotate`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ownerToken:room.ownerToken})});
+   const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'Rotate failed');
+   room.editToken=data.editToken;room.viewToken=data.viewToken;if(room.role==='editor')room.token=data.editToken;
+   saveRoomSession();showCollabActive();toastMsg('Invitation links rotated — old links no longer work');
+  }catch(e){collabShowError(e.message)}});
+ $('deleteSessionBtn').addEventListener('click',async()=>{if(!room.ownerToken||!room.sessionId)return;
+  if(!confirm('Permanently delete this session and its graph for everyone?'))return;
+  try{const r=await fetch(`/api/sessions/${room.sessionId}/delete`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ownerToken:room.ownerToken})});
+   if(!r.ok)throw new Error('Delete failed');
+   leaveRoom(true);toastMsg('Session deleted');
+  }catch(e){collabShowError(e.message)}});
+}
+function restoreRoom(){
+ wireCollab();
+ let invite=null;
+ try{const h=new URLSearchParams(location.hash.replace(/^#/,''));if(h.get('s')&&h.get('key')){invite={id:h.get('s'),token:h.get('key').toLowerCase()};history.replaceState(null,'',location.pathname+location.search)}}catch(_){}
+ const stored=loadRoomSession();
+ if(!invite&&stored&&stored.sessionId&&stored.token)invite={id:stored.sessionId,token:stored.token};
+ if(!invite)return;
+ if(stored&&stored.sessionId===invite.id){room.displayName=stored.displayName||'';room.pending=Array.isArray(stored.pending)?stored.pending.filter(p=>p&&p.opId&&Array.isArray(p.ops)):[];
+  if(invite.token===stored.token){room.editToken=stored.editToken||null;room.viewToken=stored.viewToken||null;room.ownerToken=stored.ownerToken||null}}
+ room.sessionId=invite.id;room.token=invite.token;if(!room.displayName)room.displayName='Guest';
+ room.mode='connecting';setLiveStatus('connecting','Connecting…');persist();connectRoom()}
+renderAll();requestAnimationFrame(fitView);persist();window.addEventListener('resize',()=>render());
+restoreRoom();
 })();
 </script>
 </body></html>

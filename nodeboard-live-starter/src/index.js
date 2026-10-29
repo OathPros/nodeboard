@@ -13,10 +13,10 @@ function token(bytes=24) { const raw=crypto.getRandomValues(new Uint8Array(bytes
 async function sha256(s) { const bytes = new TextEncoder().encode(s); const digest = await crypto.subtle.digest('SHA-256', bytes); return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join(''); }
 function equalHex(a,b) { if(!a||!b||a.length!==b.length) return false; let d=0; for(let i=0;i<a.length;i++)d |= a.charCodeAt(i)^b.charCodeAt(i); return d===0; }
 function validId(s) { return typeof s==='string'&&/^[a-zA-Z0-9_-]{1,120}$/.test(s); }
-function validClass(c,i) {return !!c && Number.isInteger(c.key)&&c.key===i+1&&typeof c.name==='string'&&c.name.length>0&&c.name.length<=34&&SHAPES.has(c.shape)&&/^#[0-9a-fA-F]{6}$/.test(c.color);}
+function validClass(c,i) {return !!c && validId(c.id) && Number.isInteger(c.key)&&c.key===i+1&&typeof c.name==='string'&&c.name.length>0&&c.name.length<=34&&SHAPES.has(c.shape)&&/^#[0-9a-fA-F]{6}$/.test(c.color);}
 function validGraph(g) {
  if(!g||!Array.isArray(g.nodes)||!Array.isArray(g.edges)||!Array.isArray(g.classes)||!g.classes.length||g.nodes.length>MAX_NODES||g.edges.length>MAX_EDGES||g.classes.length>MAX_CLASSES||!g.classes.every(validClass))return false;
- const nodes = new Set();for(const n of g.nodes){if(!n||!validId(n.id)||nodes.has(n.id)||!Number.isFinite(n.x)||!Number.isFinite(n.y)||Math.abs(n.x)>1e7||Math.abs(n.y)>1e7||typeof n.name!=='string'||n.name.length>110||!Number.isInteger(n.classId)||n.classId<1||n.classId>g.classes.length)return false;if(n.shapeOverride!==undefined&&n.shapeOverride!==null&&!SHAPES.has(n.shapeOverride))return false;if(n.colorOverride!==undefined&&n.colorOverride!==null&&!/^#[0-9a-fA-F]{6}$/.test(n.colorOverride))return false;nodes.add(n.id)}
+ const nodes = new Set();const classIds = new Set(g.classes.map(c=>c.id));if(classIds.size!==g.classes.length)return false;for(const n of g.nodes){if(!n||!validId(n.id)||nodes.has(n.id)||!Number.isFinite(n.x)||!Number.isFinite(n.y)||Math.abs(n.x)>1e7||Math.abs(n.y)>1e7||typeof n.name!=='string'||n.name.length>110||!classIds.has(n.classId))return false;if(n.shapeOverride!==undefined&&n.shapeOverride!==null&&!SHAPES.has(n.shapeOverride))return false;if(n.colorOverride!==undefined&&n.colorOverride!==null&&!/^#[0-9a-fA-F]{6}$/.test(n.colorOverride))return false;nodes.add(n.id)}
  const edges=new Set();for(const e of g.edges){if(!e||!validId(e.id)||edges.has(e.id)||!nodes.has(e.from)||!nodes.has(e.to)||typeof e.label!=='string'||e.label.length>90)return false;edges.add(e.id)}return true;
 }
 function applyOps(g,ops) {
@@ -37,20 +37,38 @@ function applyOps(g,ops) {
 }
 function wsSend(ws,msg){try{ws.send(JSON.stringify(msg))}catch(_){}}
 
+// Best-effort per-isolate rate limit for session creation (per client IP).
+const createHits=new Map();
+const CREATE_LIMIT=30,CREATE_WINDOW=3600_000;
+function rateLimited(ip){const now=Date.now(),e=createHits.get(ip)||{count:0,reset:now+CREATE_WINDOW};if(now>e.reset){e.count=0;e.reset=now+CREATE_WINDOW}e.count++;createHits.set(ip,e);if(createHits.size>10000)createHits.clear();return e.count>CREATE_LIMIT}
+
 export default {
  async fetch(request,env) {
   const url=new URL(request.url),path=url.pathname;
   if(path==='/api/health')return json({ok:true,service:'nodeboard-live',version:1});
   if(path==='/api/sessions'&&request.method==='POST'){
    try {
+    const ip=request.headers.get('CF-Connecting-IP')||'local';
+    if(rateLimited(ip))return json({error:'Too many sessions created — try again later'},429);
     if(Number(request.headers.get('content-length')||0)>450_000)return json({error:'Board too large'},413);
     const input=await request.json(); const title=String(input.name||'Untitled workshop').trim().slice(0,80);
     if(!validGraph(input.graph))return json({error:'Invalid graph'},400);
-    const id=token(16),editToken=token(24),viewToken=token(24),stub=env.BOARD_SESSIONS.get(env.BOARD_SESSIONS.idFromName(id));
-    const init=await stub.fetch('https://room.internal/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:title||'Untitled workshop',graph:input.graph,editHash:await sha256(editToken),viewHash:await sha256(viewToken)})});
+    const id=token(16),editToken=token(24),viewToken=token(24),ownerToken=token(24),stub=env.BOARD_SESSIONS.get(env.BOARD_SESSIONS.idFromName(id));
+    const init=await stub.fetch('https://room.internal/init',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:title||'Untitled workshop',graph:input.graph,editHash:await sha256(editToken),viewHash:await sha256(viewToken),ownerHash:await sha256(ownerToken)})});
     if(!init.ok)return json({error:'Unable to initialize session'},502);
-    return json({id,editToken,viewToken,revision:0},201);
+    return json({id,editToken,viewToken,ownerToken,revision:0},201);
    }catch(_){return json({error:'Invalid session request'},400)}
+  }
+  const ownerMatch=/^\/api\/sessions\/([A-Za-z0-9_-]{8,120})\/(rotate|delete)$/.exec(path);
+  if(ownerMatch&&request.method==='POST'){
+   try {
+    const body=await request.json().catch(()=>({}));
+    const ownerTok=String(body.ownerToken||'');
+    if(!/^[0-9a-f]{48}$/.test(ownerTok))return json({error:'Owner token required'},401);
+    const stub=env.BOARD_SESSIONS.get(env.BOARD_SESSIONS.idFromName(ownerMatch[1]));
+    const res=await stub.fetch(`https://room.internal/${ownerMatch[2]}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ownerHash:await sha256(ownerTok)})});
+    return new Response(res.body,{status:res.status,headers:{'content-type':'application/json; charset=utf-8',...CORS_HEADERS}});
+   }catch(_){return json({error:'Invalid owner request'},400)}
   }
   const match=/^\/api\/sessions\/([A-Za-z0-9_-]{8,120})\/ws$/.exec(path);
   if(match){
@@ -74,8 +92,24 @@ export class BoardSession extends DurableObject {
  async fetch(request){const path=new URL(request.url).pathname;
   if(path==='/init'&&request.method==='POST'){
    if(this.ctx.storage.kv.get('meta'))return json({error:'Already exists'},409);
-   const data=await request.json();if(!validGraph(data.graph)||!/^[0-9a-f]{64}$/.test(data.editHash)||!/^[0-9a-f]{64}$/.test(data.viewHash))return json({error:'Bad initialization'},400);
-   this.ctx.storage.transactionSync(()=>{this.saveGraph(data.graph);this.ctx.storage.kv.put('meta',{name:String(data.name||'Untitled workshop').slice(0,80),editHash:data.editHash,viewHash:data.viewHash,classes:data.graph.classes,revision:0,classesRev:0,createdAt:Date.now()})});return json({ok:true},201);
+   const data=await request.json();if(!validGraph(data.graph)||!/^[0-9a-f]{64}$/.test(data.editHash)||!/^[0-9a-f]{64}$/.test(data.viewHash)||!/^[0-9a-f]{64}$/.test(data.ownerHash||''))return json({error:'Bad initialization'},400);
+   this.ctx.storage.transactionSync(()=>{this.saveGraph(data.graph);this.ctx.storage.kv.put('meta',{name:String(data.name||'Untitled workshop').slice(0,80),editHash:data.editHash,viewHash:data.viewHash,ownerHash:data.ownerHash,classes:data.graph.classes,revision:0,classesRev:0,createdAt:Date.now()})});return json({ok:true},201);
+  }
+  if(path==='/rotate'&&request.method==='POST'){
+   const meta=this.ctx.storage.kv.get('meta');if(!meta)return json({error:'Unknown session'},404);
+   const data=await request.json().catch(()=>({}));
+   if(!equalHex(String(data.ownerHash||''),meta.ownerHash))return json({error:'Forbidden'},403);
+   const editToken=token(24),viewToken=token(24);
+   this.ctx.storage.kv.put('meta',{...meta,editHash:await sha256(editToken),viewHash:await sha256(viewToken)});
+   return json({editToken,viewToken});
+  }
+  if(path==='/delete'&&request.method==='POST'){
+   const meta=this.ctx.storage.kv.get('meta');if(!meta)return json({error:'Unknown session'},404);
+   const data=await request.json().catch(()=>({}));
+   if(!equalHex(String(data.ownerHash||''),meta.ownerHash))return json({error:'Forbidden'},403);
+   for(const s of this.ctx.getWebSockets()){try{wsSend(s,{type:'error',code:'SESSION_DELETED',message:'This session was deleted by its owner'});s.close(1000,'Session deleted')}catch(_){}}
+   await this.ctx.storage.deleteAll();
+   return json({ok:true});
   }
   if(path==='/ws'||/^\/api\/sessions\/[A-Za-z0-9_-]{8,120}\/ws$/.test(path)){
    if(!this.ctx.storage.kv.get('meta'))return json({error:'Unknown session'},404);
@@ -91,8 +125,10 @@ export class BoardSession extends DurableObject {
   const auth=ws.deserializeAttachment()||{authorized:false,attempts:0};
   if(!auth.authorized){
    if(msg.type!=='auth'||typeof msg.token!=='string'||msg.token.length>160){wsSend(ws,{type:'error',code:'UNAUTHORIZED',message:'Invitation key required'});ws.close(1008,'Unauthorized');return}
-   const meta=this.ctx.storage.kv.get('meta');const hashed=await sha256(msg.token);const isEdit=equalHex(hashed,meta.editHash),isView=equalHex(hashed,meta.viewHash);
-   if(!isEdit&&!isView){wsSend(ws,{type:'error',code:'UNAUTHORIZED',message:'Invalid invitation key'});ws.close(1008,'Unauthorized');return}
+   if((auth.attempts||0)>=5){wsSend(ws,{type:'error',code:'UNAUTHORIZED',message:'Too many attempts'});ws.close(1008,'Unauthorized');return}
+   const meta=this.ctx.storage.kv.get('meta');if(!meta){wsSend(ws,{type:'error',code:'UNAUTHORIZED',message:'Session unavailable'});ws.close(1008,'Unauthorized');return}
+   const hashed=await sha256(msg.token);const isEdit=equalHex(hashed,meta.editHash),isView=equalHex(hashed,meta.viewHash);
+   if(!isEdit&&!isView){ws.serializeAttachment({...auth,attempts:(auth.attempts||0)+1});wsSend(ws,{type:'error',code:'UNAUTHORIZED',message:'Invalid invitation key'});ws.close(1008,'Unauthorized');return}
    const clientId=typeof msg.clientId==='string'&&msg.clientId.length<100?msg.clientId:crypto.randomUUID(),name=String(msg.name||'Guest').trim().slice(0,40)||'Guest';
    ws.serializeAttachment({authorized:true,role:isEdit?'editor':'viewer',clientId,name});const graph=this.readGraph();
    const acknowledgedOpIds=Array.isArray(msg.pendingOpIds)?msg.pendingOpIds.filter(id=>validId(id)).slice(0,100).filter(id=>this.sql.exec('SELECT op_id FROM processed_ops WHERE op_id=?',id).toArray().length>0):[];
@@ -112,7 +148,16 @@ export class BoardSession extends DurableObject {
    }catch(e){wsSend(ws,{type:'error',code:'REVISION_CONFLICT',message:String(e.message||'Could not apply edit')})}
    return;
   }
-  if(msg.type==='presence'){return}
+  if(msg.type==='presence'){
+   const now=Date.now();
+   if(now-(auth.lastPresence||0)<80)return;
+   ws.serializeAttachment({...auth,lastPresence:now});
+   const x=Number(msg.x),y=Number(msg.y);
+   if(!Number.isFinite(x)||!Number.isFinite(y)||Math.abs(x)>1e7||Math.abs(y)>1e7)return;
+   const selection=validId(msg.selection)?msg.selection:null;
+   for(const s of this.ctx.getWebSockets()){if(s!==ws&&s.deserializeAttachment()?.authorized)wsSend(s,{type:'cursor',clientId:auth.clientId,name:auth.name,x,y,selection})}
+   return;
+  }
   wsSend(ws,{type:'error',code:'BAD_REQUEST',message:'Unsupported message type'});
  }
  async webSocketClose(ws,code,reason){try{ws.close(code,reason)}catch(_){}this.announce()}
