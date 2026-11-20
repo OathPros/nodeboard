@@ -186,3 +186,45 @@ test('joining with a bad token is rejected', async ({ browser }) => {
     await A.context.close();
   }
 });
+
+test('relationship templates and bulk line updates sync and survive reconnect', async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await context.newPage();
+  page.on('pageerror', e => { throw e; });
+  try {
+    await page.goto('/');
+    const graph = await page.evaluate(() => {
+      const g = JSON.parse(localStorage.getItem('nodeboard-v1.1'));
+      for (let i = 0; i < 105; i++) g.edges.push({ id: 'bulk' + i, from: 'n1', to: 'n2', label: 'old' });
+      return g;
+    });
+    await page.addInitScript(g => localStorage.setItem('nodeboard-v1.1', JSON.stringify(g)), graph);
+    await page.reload();
+    await page.locator('#collabBtn').click();
+    await page.locator('#collabCreateBtn').click();
+    await expect(page.locator('#liveStatus')).toContainText('Live · connected', { timeout: 15000 });
+    const link = await page.locator('#collabEditorLink').inputValue();
+    await page.keyboard.press('Escape');
+    const B = await join(browser, link, 'Bob');
+    try {
+      await page.locator('#editRelations').click();
+      await page.locator('#relationFrom').selectOption('cls-service');
+      await page.locator('#relationTo').selectOption('cls-offering');
+      await page.locator('#relationLabel').fill('offers');
+      await page.locator('#relationInverse').fill('offered_by');
+      await page.locator('#saveRelation').click();
+      await expect.poll(() => B.page.locator('#scene .edge text').filter({ hasText: 'offers' }).count(), { timeout: 15000 }).toBe(106);
+      await expect(B.page.locator('#scene')).toContainText('offered_by');
+      await expect(page.locator('#saveLabel')).toContainText('saved to session', { timeout: 15000 });
+      await B.page.reload();
+      await expect(B.page.locator('#liveStatus')).toContainText('Live · connected', { timeout: 15000 });
+      await expect(B.page.locator('#scene .edge text').filter({ hasText: 'offers' })).toHaveCount(106);
+      await B.page.locator('#editRelations').click();
+      await expect(B.page.locator('#relationList')).toContainText('offered_by');
+    } finally {
+      await B.context.close();
+    }
+  } finally {
+    await context.close();
+  }
+});

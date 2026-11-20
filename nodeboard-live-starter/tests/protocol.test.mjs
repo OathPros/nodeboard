@@ -25,3 +25,10 @@ test('deleting a node removes its incident edges',()=>{const x=env(fixture(),[{t
 test('a patch cannot change immutable entity ID',()=>{const x=env(fixture(),[{type:'node.patch',id:'n1',patch:{id:'x'}}]);assert.throws(x.apply,/Bad patch/)});
 test('upsert + edge in the same message succeeds atomically in memory',()=>{const g=fixture(),x=env(g,[{type:'node.upsert',node:{id:'n_3',x:45,y:50,name:'Team',classId:'c1'}},{type:'edge.upsert',edge:{id:'e_3',from:'n1',to:'n_3',label:'SUPPORTS'}}]);x.apply();assert.equal(x.context.graph.nodes.length,3);assert.equal(x.context.graph.edges.length,2)});
 test('invalid coordinate rejects a mutation',()=>{const x=env(fixture(),[{type:'node.patch',id:'n1',patch:{x:Infinity}}]);assert.throws(x.apply,/invalid graph/i)});
+test('relationship templates require valid class pairs and titles',()=>{
+  const g=fixture();g.classes[0].relations=[{to:'c2',label:'offers',inverse:'offered_by'}];
+  assert.equal(env(g).validate(),true);
+  g.classes[0].relations[0].to='missing';assert.equal(env(g).validate(),false);
+  g.classes[0].relations[0].to='c2';g.classes[1].relations=[{to:'c1',label:'duplicate',inverse:''}];assert.equal(env(g).validate(),false);
+  g.classes[1].relations=[];g.classes[0].relations[0]={to:'c1',label:'self',inverse:'reverse'};assert.equal(env(g).validate(),false);
+});

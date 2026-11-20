@@ -16,6 +16,21 @@ Create live session**, copy the **Editor link** into window B. Use the
 **View-only invitation** for guests who should not edit. Opening `public/index.html`
 directly from disk works as a fully-featured local editor (no server).
 
+## Editing
+
+- Double-click an existing node or line to edit it; click or tab away to save.
+  Double-click empty canvas to create a node, or select a node and press Tab to
+  add a child.
+- Select a node or line and use Ctrl/Cmd+C and Ctrl/Cmd+V, or right-click and
+  choose Copy/Paste. The graph clipboard is in the current tab. Pasted nodes are
+  independent copies; pasted lines connect the same existing endpoints.
+- Open **Relationship templates** to set a title for a directed pair of classes,
+  such as Service → HAS_OFFERING → Offering. An optional inverse title creates
+  and labels the reverse line. Saving applies titles to existing matching lines
+  and supplies defaults for new connections and reclassified nodes. One template
+  covers each class pair; inverse titles require two different classes. Removing
+  a template leaves existing lines untouched.
+
 ## Tests
 
 ```bash
