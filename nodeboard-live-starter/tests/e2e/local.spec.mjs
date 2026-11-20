@@ -23,6 +23,37 @@ test('sample graph renders and persists locally', async ({ page }) => {
   expect(g.classes.length).toBeGreaterThanOrEqual(7);
 });
 
+test('bulk JSON editing validates atomically and updates changed relationship templates', async ({ page }) => {
+  const original = await localGraph(page);
+  await page.locator('#editClasses').click();
+  await page.locator('#bulkClasses').click();
+  const input = page.locator('#bulkJson');
+  const classes = JSON.parse(await input.inputValue());
+  expect(classes).toEqual(original.classes);
+  await input.fill('{broken');
+  await page.locator('#applyBulk').click();
+  await expect(page.locator('#bulkFeedback')).toContainText('Invalid JSON');
+  expect(await localGraph(page)).toEqual(original);
+  await input.fill(JSON.stringify(classes.slice(1).map((c, i) => ({ ...c, key: i + 1 }))));
+  await page.locator('#applyBulk').click();
+  await expect(page.locator('#bulkFeedback')).toContainText('existing nodes use it');
+  expect(await localGraph(page)).toEqual(original);
+  classes[0].name = 'Service updated';
+  classes[0].relations = [{ to: classes[1].id, label: 'OFFERS', inverse: 'OFFERED_BY' }];
+  await input.fill(JSON.stringify(classes));
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#applyBulk').click();
+  await expect(page.locator('#modalBackdrop')).toBeVisible();
+  let graph = await localGraph(page);
+  expect(graph.classes[0].name).toBe('Service updated');
+  expect(graph.edges.find(e => e.id === 'e1').label).toBe('OFFERS');
+  expect(graph.edges.filter(e => e.from === 'n2' && e.to === 'n1').map(e => e.label)).toEqual(['OFFERED_BY']);
+  await page.locator('#closeClasses').click();
+  await page.locator('#undoBtn').click();
+  graph = await localGraph(page);
+  expect(graph).toEqual(original);
+});
+
 test('double-click creates a connected node with inline naming', async ({ page }) => {
   await page.locator('#canvas').dblclick({ position: { x: 760, y: 615 } });
   await expect(page.locator('#quickedit')).toBeVisible();

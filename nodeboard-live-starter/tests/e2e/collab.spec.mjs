@@ -198,6 +198,7 @@ test('relationship templates and bulk line updates sync and survive reconnect', 
       for (let i = 0; i < 105; i++) g.edges.push({ id: 'bulk' + i, from: 'n1', to: 'n2', label: 'old' });
       return g;
     });
+
     await page.addInitScript(g => localStorage.setItem('nodeboard-v1.1', JSON.stringify(g)), graph);
     await page.reload();
     await page.locator('#collabBtn').click();
@@ -221,10 +222,49 @@ test('relationship templates and bulk line updates sync and survive reconnect', 
       await expect(B.page.locator('#scene .edge text').filter({ hasText: 'offers' })).toHaveCount(106);
       await B.page.locator('#editRelations').click();
       await expect(B.page.locator('#relationList')).toContainText('offered_by');
+      await page.locator('#bulkRelations').click();
+      const classes = JSON.parse(await page.locator('#bulkJson').inputValue());
+      classes[0].relations[0].label = 'provides';
+      await page.locator('#bulkJson').fill(JSON.stringify(classes));
+      page.once('dialog', dialog => dialog.accept());
+      await page.locator('#applyBulk').click();
+      await expect.poll(() => B.page.locator('#scene .edge text').filter({ hasText: 'provides' }).count(), { timeout: 15000 }).toBe(106);
+      await expect(page.locator('#saveLabel')).toContainText('saved to session', { timeout: 15000 });
     } finally {
       await B.context.close();
     }
   } finally {
     await context.close();
+  }
+});
+
+test('pasted classes and relationship changes sync across editors', async ({ browser }) => {
+  const A = await createSession(browser);
+  const B = await join(browser, A.editorLink, 'Bob');
+  try {
+    await A.page.locator('#editRelations').click();
+    await A.page.locator('#bulkRelations').click();
+    const classes = JSON.parse(await A.page.locator('#bulkJson').inputValue());
+    classes[0].name = 'Services revised';
+    classes[0].relations = [{ to: classes[1].id, label: 'HAS_OFFERING', inverse: 'IS_OFFERING' }];
+    await A.page.locator('#bulkJson').fill(JSON.stringify(classes));
+    A.page.once('dialog', dialog => dialog.accept());
+    await A.page.locator('#applyBulk').click();
+    await expect(B.page.locator('#palette')).toContainText('Services revised');
+    await expect(B.page.locator('#scene')).toContainText('IS_OFFERING');
+    await expect(A.page.locator('#saveLabel')).toContainText('saved to session');
+    await B.page.reload();
+    await expect(B.page.locator('#liveStatus')).toContainText('Live · connected');
+    await expect(B.page.locator('#scene')).toContainText('IS_OFFERING');
+    await A.page.locator('#bulkRelations').click();
+    await B.page.locator('#editClasses').click();
+    await B.page.locator('[data-classname="1"]').fill('Changed elsewhere');
+    await B.page.locator('[data-classname="1"]').blur();
+    await expect(A.page.locator('#palette')).toContainText('Changed elsewhere');
+    await A.page.locator('#applyBulk').click();
+    await expect(A.page.locator('#bulkFeedback')).toContainText('Classes changed while this editor was open');
+  } finally {
+    await A.context.close();
+    await B.context.close();
   }
 });

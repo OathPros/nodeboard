@@ -30,6 +30,24 @@ directly from disk works as a fully-featured local editor (no server).
   and supplies defaults for new connections and reclassified nodes. One template
   covers each class pair; inverse titles require two different classes. Removing
   a template leaves existing lines untouched.
+- In **Edit classes** or **Relationship templates**, choose **Copy / paste JSON**
+  to copy, edit, and replace the entire set. Keep the IDs of classes used by
+  existing nodes, number `key` values consecutively from 1, and refer to class
+  IDs in relationships. Valid shapes are `rounded`, `rectangle`, `pill`,
+  `ellipse`, `diamond`, `hexagon`, `document`, and `circle`. A minimal example:
+
+  ```json
+  [
+    {"id":"service","key":1,"name":"Service","shape":"rounded","color":"#e05a72",
+     "relations":[{"to":"offering","label":"HAS_OFFERING","inverse":"IS_OFFERING"}]},
+    {"id":"offering","key":2,"name":"Offering","shape":"pill","color":"#8c77cf"}
+  ]
+  ```
+
+  Changed or new templates update matching existing lines and add missing
+  inverse lines; removing a template leaves lines unchanged. Replacement is
+  rejected if it would orphan nodes or is invalid. Export a JSON backup first
+  for significant changes, especially in live sessions where undo is unavailable.
 
 ## Tests
 
