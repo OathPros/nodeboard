@@ -4,14 +4,20 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build": "esbuild src/browser-auth.js --bundle --minify --format=iife --outfile=public/auth.js",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run build && wrangler deploy",
     "typecheck": "node --check src/index.js",
     "test": "node --test tests/*.test.mjs",
     "test:e2e": "playwright test",
-    "test:all": "npm run typecheck && npm test && playwright test"
+    "test:private": "playwright test -c playwright.private.config.mjs",
+    "test:all": "npm run typecheck && npm test && playwright test && npm run test:private"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.119.2"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "@playwright/test": "^1.64.1",
     "playwright": "^1.64.1",
     "wrangler": "^4.0.0"

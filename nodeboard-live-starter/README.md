@@ -36,10 +36,42 @@ directly from disk works as a fully-featured local editor (no server).
 ```bash
 npm test          # unit (protocol) + integration tests; integration self-skips if no dev server
 npm run test:e2e  # Playwright: local editing regression + 2-editor/1-viewer multiplayer
-npm run test:all  # typecheck + unit/integration + E2E
+npm run test:private # private documents with a local fake authentication server
+npm run test:all  # typecheck + unit/integration + both E2E suites
 ```
 
 `npm run test:e2e` auto-starts `wrangler dev` (or reuses one already on port 8787).
+
+## Private accounts and documents
+
+Accounts are optional. Private document access uses Supabase Auth and Google
+sign-in; Cloudflare stores the documents and their access lists. A person must
+sign in once before an owner can share with their verified account email.
+Owners can grant viewer or editor access, change that access, and remove it.
+Revocation closes existing connections. A viewer can see and export the board.
+Existing local boards and invitation-link sessions remain separate; creating a
+private copy does **not** disable existing links.
+
+To configure accounts:
+
+1. Create a Supabase project on the free plan. In Authentication, set the site
+   URL and redirect allowlist to the deployed app URL.
+2. Set up a Google OAuth **web application**, with the app origin as an authorized
+   JavaScript origin and the Supabase Google provider's callback URL as its
+   authorized redirect URI. Configure the consent screen for external users;
+   testing mode only permits configured test users. Configure the Google client
+   ID and secret in Supabase's Google provider settings. Never commit the secret.
+3. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for the Worker from
+   the Supabase project URL and publishable (or legacy anon) key. These two
+   values are public, not the service-role key. They can be set using
+   `wrangler secret put SUPABASE_URL` and `wrangler secret put SUPABASE_PUBLISHABLE_KEY`.
+4. Run `npm run build`, then deploy. The `v2` Durable Object migration creates
+   the document directory; do not remove or rename its binding.
+
+Supabase's free projects may pause after inactivity. Free plan quotas apply to
+Supabase and Cloudflare. The private document directory is a single Durable
+Object, suitable for a small deployment but a scaling bottleneck. Exports are
+the user's backups; deleting a document is permanent.
 
 ## Deploy
 

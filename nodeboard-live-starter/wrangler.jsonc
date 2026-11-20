@@ -4,9 +4,9 @@
   "main": "src/index.js",
   "compatibility_date": "2026-10-28",
   "durable_objects": {
-    "bindings": [{"name": "BOARD_SESSIONS", "class_name": "BoardSession"}]
+    "bindings": [{"name": "BOARD_SESSIONS", "class_name": "BoardSession"}, {"name": "DOCUMENT_DIRECTORY", "class_name": "DocumentDirectory"}]
   },
-  "migrations": [{"tag": "v1", "new_sqlite_classes": ["BoardSession"]}],
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["BoardSession"]}, {"tag": "v2", "new_sqlite_classes": ["DocumentDirectory"]}],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
