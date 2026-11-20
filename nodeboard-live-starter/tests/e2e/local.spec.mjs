@@ -23,6 +23,62 @@ test('sample graph renders and persists locally', async ({ page }) => {
   expect(g.classes.length).toBeGreaterThanOrEqual(7);
 });
 
+test('canvas appearance is customizable, persistent and independent of the graph', async ({ page }) => {
+  const original = await localGraph(page);
+  const workspace = page.locator('#workspace');
+  const openSettings = async () => {
+    await page.locator('#profileBtn').click();
+    await page.locator('#canvasSettingsBtn').click();
+  };
+  await openSettings();
+  await page.locator('#canvasColor').fill('#ff0000');
+  await page.locator('#canvasOpacity').fill('40');
+  await page.locator('#canvasPattern').selectOption('grid');
+  await page.locator('#patternColor').fill('#0000ff');
+  await page.locator('#patternOpacity').fill('25');
+  await page.locator('#patternSpacing').fill('35');
+  await expect(page.locator('#patternOpacityValue')).toHaveText('25%');
+  await expect(workspace).toHaveCSS('background-size', '35px 35px, 35px 35px, auto');
+  await expect(workspace).toHaveCSS('background-image', /rgba\(0, 0, 255, 0.25\).*rgba\(255, 0, 0, 0.4\)/);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#canvasSettingsBackdrop')).toBeHidden();
+  await expect(page.locator('#profileBtn')).toBeFocused();
+  expect(await localGraph(page)).toEqual(original);
+  await page.reload();
+  await expect(workspace).toHaveCSS('background-size', '35px 35px, 35px 35px, auto');
+  await openSettings();
+  await expect(page.locator('#canvasPattern')).toHaveValue('grid');
+  await page.locator('#canvasPattern').selectOption('none');
+  await page.locator('#canvasOpacity').fill('0');
+  await expect(workspace).toHaveCSS('background-image', 'linear-gradient(rgba(255, 0, 0, 0), rgba(255, 0, 0, 0))');
+  await page.locator('#resetCanvasSettings').click();
+  await expect(workspace).toHaveCSS('background-image', /radial-gradient/);
+  await expect(workspace).toHaveCSS('background-size', '22px 22px');
+  await page.locator('#closeCanvasSettings').click();
+  await page.locator('#profileBtn').click();
+  await page.locator('#themeToggle').click();
+  await expect(workspace).toHaveCSS('background-color', 'rgb(25, 35, 48)');
+  await page.reload();
+  await expect(workspace).toHaveCSS('background-color', 'rgb(25, 35, 48)');
+  await expect(workspace).toHaveCSS('background-image', /radial-gradient/);
+  expect(await localGraph(page)).toEqual(original);
+});
+
+test('canvas appearance is accessible on a small screen and respects the theme base', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.locator('#profileBtn').click();
+  await page.locator('#themeToggle').click();
+  await page.locator('#profileBtn').click();
+  await page.locator('#canvasSettingsBtn').click();
+  await expect(page.locator('#canvasColor')).toHaveValue('#192330');
+  await page.locator('#patternOpacity').fill('0');
+  await expect(page.locator('#workspace')).toHaveCSS('background-image', /radial-gradient\(rgba\(71, 85, 106, 0\)/);
+  await page.locator('#canvasOpacity').fill('0');
+  await expect(page.locator('#workspace')).toHaveCSS('background-color', 'rgb(25, 35, 48)');
+  await page.locator('#closeCanvasSettings').click();
+  await expect(page.locator('#canvasSettingsBackdrop')).toBeHidden();
+});
+
 test('bulk JSON editing validates atomically and updates changed relationship templates', async ({ page }) => {
   const original = await localGraph(page);
   await page.locator('#editClasses').click();

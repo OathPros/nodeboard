@@ -18,6 +18,11 @@ directly from disk works as a fully-featured local editor (no server).
 
 ## Editing
 
+- Open the profile menu and choose **Canvas appearance** to set a background
+  colour and opacity, switch between dots, grid, and no pattern, and adjust
+  pattern colour, opacity, and spacing. Changes are saved in this browser,
+  apply across boards, and do not affect collaborators or exports. Reset returns
+  to the current light or dark theme's defaults.
 - Double-click an existing node or line to edit it; click or tab away to save.
   Double-click empty canvas to create a node, or select a node and press Tab to
   add a child.
