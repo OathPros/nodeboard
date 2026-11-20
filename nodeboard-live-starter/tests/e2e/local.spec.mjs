@@ -214,6 +214,86 @@ test('drag repositions a node', async ({ page }) => {
   expect(Math.abs(after.y - before.y)).toBeGreaterThan(10);
 });
 
+test('shift selects and toggles nodes for group move, class, copy and delete', async ({ page }) => {
+  const n1 = page.locator('[data-node-id="n1"]'), n2 = page.locator('[data-node-id="n2"]');
+  await n1.click();
+  await n2.click({ modifiers: ['Shift'] });
+  await expect(page.locator('.node .svg-shape.selected')).toHaveCount(2);
+  await n2.click({ modifiers: ['Shift'] });
+  await expect(page.locator('.node .svg-shape.selected')).toHaveCount(1);
+  await n2.click({ modifiers: ['Shift'] });
+  const before = await localGraph(page), box = await n1.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 45, { steps: 4 });
+  await page.mouse.up();
+  let graph = await localGraph(page);
+  const delta = id => ({ x: graph.nodes.find(n => n.id === id).x - before.nodes.find(n => n.id === id).x, y: graph.nodes.find(n => n.id === id).y - before.nodes.find(n => n.id === id).y });
+  expect(delta('n1').x).toBeGreaterThan(20);
+  expect(delta('n1').x).toBeCloseTo(delta('n2').x);
+  expect(delta('n1').y).toBeCloseTo(delta('n2').y);
+  await page.keyboard.press('Control+z');
+  expect(await localGraph(page)).toEqual(before);
+  await page.keyboard.press('3');
+  graph = await localGraph(page);
+  expect(graph.nodes.filter(n => ['n1', 'n2'].includes(n.id)).map(n => n.classId)).toEqual(['cls-operation', 'cls-operation']);
+  await n1.click({ button: 'right' });
+  await expect(page.locator('#context')).toContainText('2 nodes selected');
+  const menu = await page.locator('#context').innerHTML();
+  await page.locator('#zoomIn').click();
+  await n1.dblclick();
+  expect(await page.locator('#context').innerHTML()).toBe(menu);
+  await page.locator('#ctxGroupClass').selectOption('2');
+  graph = await localGraph(page);
+  expect(graph.nodes.filter(n => ['n1', 'n2'].includes(n.id)).every(n => n.classId === 'cls-offering')).toBe(true);
+  await n1.click({ button: 'right' });
+  await page.locator('[data-clipboard="copy"]').click();
+  await page.keyboard.press('Control+v');
+  graph = await localGraph(page);
+  expect(graph.nodes).toHaveLength(7);
+  const copies = graph.nodes.slice(-2);
+  expect(copies.map(n => n.name)).toEqual(['Email & Calendaring', 'Faculty & Staff Email']);
+  expect(graph.edges).toHaveLength(5);
+  expect(graph.edges.at(-1)).toMatchObject({ from: copies[0].id, to: copies[1].id, label: 'HAS_OFFERING' });
+  await expect(page.locator('.node .svg-shape.selected')).toHaveCount(2);
+  await page.keyboard.press('Delete');
+  expect((await localGraph(page)).nodes).toHaveLength(5);
+  await page.keyboard.press('Control+z');
+  expect(await localGraph(page)).toEqual(graph);
+});
+
+test('group paste from canvas menu retains layout and only internal connections', async ({ page }) => {
+  await page.locator('[data-node-id="n1"]').click();
+  await page.locator('[data-node-id="n2"]').click({ modifiers: ['Shift'] });
+  const original = await localGraph(page);
+  await page.keyboard.press('Control+c');
+  await page.locator('#canvas').click({ button: 'right', position: { x: 900, y: 600 } });
+  await page.locator('[data-clipboard="paste"]').click();
+  const graph = await localGraph(page), copies = graph.nodes.slice(-2);
+  expect(copies[1].x - copies[0].x).toBe(original.nodes[1].x - original.nodes[0].x);
+  expect(copies[1].y - copies[0].y).toBe(original.nodes[1].y - original.nodes[0].y);
+  expect(graph.edges.slice(4)).toMatchObject([{ from: copies[0].id, to: copies[1].id }]);
+  await page.locator(`[data-node-id="${copies[0].id}"]`).click({ button: 'right' });
+  await page.locator('[data-group-action="delete"]').click();
+  expect(await localGraph(page)).toEqual(original);
+});
+
+test('Ctrl and Meta click connect nodes instead of adding to selection', async ({ page }) => {
+  await page.locator('[data-node-id="n1"]').click();
+  await page.locator('[data-node-id="n3"]').click({ modifiers: ['Control'] });
+  await expect(page.locator('#quickedit')).toBeVisible();
+  await page.locator('#nodeNameInput').fill('NEW_LINK');
+  await page.keyboard.press('Escape');
+  let graph = await localGraph(page);
+  expect(graph.edges.at(-1)).toMatchObject({ from: 'n1', to: 'n3', label: 'NEW_LINK' });
+  await page.locator('[data-node-id="n3"]').click();
+  await page.locator('[data-node-id="n1"]').click({ modifiers: ['Meta'] });
+  await expect(page.locator('#quickedit')).toBeVisible();
+  await page.keyboard.press('Escape');
+  graph = await localGraph(page);
+  expect(graph.edges.at(-1)).toMatchObject({ from: 'n3', to: 'n1' });
+});
+
 test('right-click context menu renames a node', async ({ page }) => {
   await page.locator('#scene .node').first().click({ button: 'right' });
   await expect(page.locator('#context')).toBeVisible();

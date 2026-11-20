@@ -115,6 +115,41 @@ test('two editors and one viewer collaborate in real time', async ({ browser }) 
   }
 });
 
+test('multi-node operations and Ctrl-click connections sync to collaborators', async ({ browser }) => {
+  const A = await createSession(browser);
+  const B = await join(browser, A.editorLink, 'Bob');
+  try {
+    const n1 = A.page.locator('[data-node-id="n1"]'), n2 = A.page.locator('[data-node-id="n2"]');
+    await n1.click();
+    await n2.click({ modifiers: ['Shift'] });
+    const before = await B.page.locator('[data-node-id="n1"] rect').first().getAttribute('x');
+    const box = await n1.boundingBox();
+    await A.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await A.page.mouse.down();
+    await A.page.mouse.move(box.x + box.width / 2 + 70, box.y + box.height / 2 + 40, { steps: 4 });
+    await A.page.mouse.up();
+    await expect.poll(() => B.page.locator('[data-node-id="n1"] rect').first().getAttribute('x')).not.toBe(before);
+    await A.page.keyboard.press('3');
+    await expect(B.page.locator('[data-node-id="n1"]')).toContainText('OPERATION');
+    await expect(B.page.locator('[data-node-id="n2"]')).toContainText('OPERATION');
+    await A.page.keyboard.press('Control+c');
+    await A.page.keyboard.press('Control+v');
+    await expect(B.page.locator('#scene .node')).toHaveCount(7);
+    await expect(B.page.locator('#scene .edge')).toHaveCount(5);
+    await A.page.keyboard.press('Delete');
+    await expect(B.page.locator('#scene .node')).toHaveCount(5);
+    await expect(B.page.locator('#scene .edge')).toHaveCount(4);
+    await A.page.locator('[data-node-id="n1"]').click();
+    await A.page.locator('[data-node-id="n3"]').click({ modifiers: ['Control'] });
+    await A.page.locator('#nodeNameInput').fill('SYNCED_LINK');
+    await A.page.keyboard.press('Escape');
+    await expect(B.page.locator('#scene')).toContainText('SYNCED_LINK');
+  } finally {
+    await A.context.close();
+    await B.context.close();
+  }
+});
+
 test('class add/delete sync across editors with node reassignment', async ({ browser }) => {
   const A = await createSession(browser);
   try {

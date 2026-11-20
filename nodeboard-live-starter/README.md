@@ -28,6 +28,13 @@ directly from disk works as a fully-featured local editor (no server).
   Edit labels in the menu and click or tab away to save. On the canvas, choose
   **New node** or **New connected node**; alternatively, select a node and press
   Tab to add a child.
+- Shift-click nodes to add or remove them from the selection. Drag a selected
+  node to move the group; use Delete, class shortcuts, or the group's context
+  menu to delete or reclassify them. Copy/paste duplicates the selected nodes
+  and their internal connections, not connections to unselected nodes. Click
+  blank canvas or press Escape to clear the selection.
+- Select a source node, then Ctrl-click (Cmd-click on Mac) another node to
+  connect them. The context menu's Connect action also starts a connection.
 - Select a node or line and use Ctrl/Cmd+C and Ctrl/Cmd+V, or right-click and
   choose Copy/Paste. The graph clipboard is in the current tab. Pasted nodes are
   independent copies; pasted lines connect the same existing endpoints.
