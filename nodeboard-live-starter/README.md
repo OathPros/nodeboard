@@ -24,6 +24,15 @@ directly from disk works as a fully-featured local editor (no server).
 - Select a node or line and use Ctrl/Cmd+C and Ctrl/Cmd+V, or right-click and
   choose Copy/Paste. The graph clipboard is in the current tab. Pasted nodes are
   independent copies; pasted lines connect the same existing endpoints.
+- Open **JSON view** (or the profile menu on smaller screens) to copy the entire
+  board or paste edited Nodeboard JSON and replace it. Invalid data is rejected;
+  shared-board replacement affects everyone and reconnects participants. Ask
+  collaborators to pause and sync their edits before replacing a shared board.
+  Local replacement can be undone; live replacement cannot. Export a backup first.
+- Signed-in users can choose **Import JSON as new document** on Home. The name
+  field is optional; the filename is used when it is blank. The original board
+  remains unchanged. Imports and replacements are limited to 400 KB of graph
+  data and use the same graph schema as the editable JSON export.
 - Open **Relationship templates** to set a title for a directed pair of classes,
   such as Service → HAS_OFFERING → Offering. An optional inverse title creates
   and labels the reverse line. Saving applies titles to existing matching lines

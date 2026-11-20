@@ -236,3 +236,36 @@ test('email sign-in sends and verifies a one-time code', async ({ page }) => {
   expect(requests.at(-1)).toEqual({ email: 'alice@example.test', token: '123456', type: 'email' });
   expect(errors).toEqual([]);
 });
+
+test('importing JSON creates a separate private document', async ({ browser, request }) => {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.route('**/auth.js', route => route.fulfill({ contentType: 'text/javascript', body: `window.createNodeboardAuth=()=>({auth:{getSession:async()=>({data:{session:{access_token:${JSON.stringify(token('alice'))}}}}),onAuthStateChange:()=>{},signOut:async()=>({error:null})}})` }));
+  let originalId, importedId;
+  try {
+    await page.goto('/');
+    await expect(page.locator('#signedIn')).toBeVisible();
+    await page.locator('#documentName').fill('Original import test');
+    await page.locator('#copyDocument').click();
+    await expect(page.locator('#liveStatus')).toContainText('Live · connected');
+    originalId = (await (await request.get(api, { headers: auth('alice') })).json()).documents.find(d => d.name === 'Original import test').id;
+    await page.locator('#documentsBtn').click();
+    await page.locator('#documentName').fill('Imported project');
+    await page.locator('#importProjectFile').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{bad') });
+    await expect(page.locator('#documentsError')).toContainText('Invalid JSON');
+    expect((await (await request.get(api, { headers: auth('alice') })).json()).documents.some(d => d.name === 'Imported project')).toBe(false);
+    await page.locator('#importProjectFile').setInputFiles({ name: 'board.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(graph)) });
+    await expect(page.locator('#liveStatus')).toContainText('Live · connected');
+    await expect(page.locator('#scene')).toContainText('Private node');
+    importedId = (await (await request.get(api, { headers: auth('alice') })).json()).documents.find(d => d.name === 'Imported project').id;
+    expect(importedId).not.toBe(originalId);
+    await page.locator('#documentsBtn').click();
+    await page.locator(`[data-open-document="${originalId}"]`).click();
+    await expect(page.locator('#scene .node')).toHaveCount(5);
+    await expect(page.locator('#scene')).not.toContainText('Private node');
+  } finally {
+    if (originalId) await request.delete(`${api}/${originalId}`, { headers: auth('alice') });
+    if (importedId) await request.delete(`${api}/${importedId}`, { headers: auth('alice') });
+    await context.close();
+  }
+});

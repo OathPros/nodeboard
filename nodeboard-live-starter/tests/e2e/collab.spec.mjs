@@ -268,3 +268,69 @@ test('pasted classes and relationship changes sync across editors', async ({ bro
     await B.context.close();
   }
 });
+
+test('board JSON replaces a live board and reconnects all participants', async ({ browser }) => {
+  const A = await createSession(browser);
+  const B = await join(browser, A.editorLink, 'Bob');
+  const V = await join(browser, A.viewerLink, 'Viewer');
+  try {
+    await V.page.locator('#jsonViewBtn').click();
+    await expect(V.page.locator('#graphJson')).toHaveAttribute('readonly');
+    await expect(V.page.locator('#applyGraphJson')).toBeDisabled();
+    await V.page.locator('#closeGraphJson').click();
+    await A.page.locator('#jsonViewBtn').click();
+    const board = JSON.parse(await A.page.locator('#graphJson').inputValue());
+    const oldClassId = board.classes[0].id;
+    board.classes[0].id = 'replacement-class';
+    for (const node of board.nodes) if (node.classId === oldClassId) node.classId = 'replacement-class';
+    for (let i = 0; i < 120; i++) board.nodes.push({ id: `new${i}`, x: i * 10, y: 200, name: `New ${i}`, classId: 'replacement-class' });
+    board.nodes[0].name = 'Replacement board';
+    await A.page.locator('#graphJson').fill(JSON.stringify(board));
+    A.page.once('dialog', dialog => dialog.accept());
+    await A.page.locator('#applyGraphJson').click();
+    await expect(A.page.locator('#graphJsonBackdrop')).toBeHidden({ timeout: 15000 });
+    await expect(A.page.locator('#liveStatus')).toContainText('Live · connected', { timeout: 15000 });
+    await expect(B.page.locator('#scene')).toContainText('Replacement board', { timeout: 15000 });
+    await expect(B.page.locator('#scene .node')).toHaveCount(125);
+    await expect(V.page.locator('#scene')).toContainText('Replacement board', { timeout: 15000 });
+    await B.page.reload();
+    await expect(B.page.locator('#scene')).toContainText('Replacement board', { timeout: 15000 });
+    await A.page.locator('#jsonViewBtn').click();
+    const changed = JSON.parse(await A.page.locator('#graphJson').inputValue());
+    changed.nodes[0].name = 'Unapplied edit';
+    await A.page.locator('#graphJson').fill(JSON.stringify(changed));
+    await B.page.locator('#scene .node').first().dblclick();
+    await B.page.locator('#nodeNameInput').fill('Edited elsewhere');
+    await B.page.keyboard.press('Escape');
+    await expect(A.page.locator('#scene')).toContainText('Edited elsewhere');
+    await A.page.locator('#applyGraphJson').click();
+    await expect(A.page.locator('#graphJsonFeedback')).toContainText('board changed');
+  } finally {
+    await A.context.close();
+    await B.context.close();
+    await V.context.close();
+  }
+});
+
+test('server rejects stale and view-only full-board replacements', async ({ browser }) => {
+  const A = await createSession(browser);
+  try {
+    const attempt = (link, baseRevision) => A.page.evaluate(({ link, baseRevision }) => new Promise((resolve, reject) => {
+      const invite = new URLSearchParams(new URL(link).hash.slice(1));
+      const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/sessions/${invite.get('s')}/ws`);
+      ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: invite.get('key'), clientId: crypto.randomUUID(), name: 'Test' }));
+      ws.onmessage = event => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'welcome') ws.send(JSON.stringify({ type: 'replace-graph', requestId: 'replacement-attempt', baseRevision, graph: msg.graph }));
+        if (msg.type === 'graph.replace-error') { resolve(msg.code); ws.close(); }
+      };
+      ws.onerror = () => reject(new Error('WebSocket connection failed'));
+      setTimeout(() => reject(new Error('No replacement response')), 10000);
+    }), { link, baseRevision });
+    expect(await attempt(A.editorLink, -1)).toBe('REVISION_CONFLICT');
+    expect(await attempt(A.viewerLink, 0)).toBe('FORBIDDEN');
+    await expect(A.page.locator('#scene .node')).toHaveCount(5);
+  } finally {
+    await A.context.close();
+  }
+});

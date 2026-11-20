@@ -210,6 +210,23 @@ export class BoardSession extends DurableObject {
    wsSend(ws,{type:'welcome',name:documentName,role:isEdit?'editor':'viewer',graph,revision:meta.revision,classesRev:meta.classesRev,participants:this.people(),acknowledgedOpIds});await this.announce();return;
   }
   const currentMeta=this.ctx.storage.kv.get('meta');if(currentMeta?.documentId){const role=await this.privateRole(currentMeta,auth);if(!role){const expired=auth.expires<=Date.now()/1000;wsSend(ws,{type:'error',code:expired?'AUTH_EXPIRED':'ACCESS_REVOKED',message:expired?'Sign-in expired':'Document access ended'});ws.close(1008,'Access ended');return}if(role==='viewer')auth.role='viewer';else auth.role='editor';}
+  if(msg.type==='replace-graph'){
+   const reject=(code,message)=>wsSend(ws,{type:'graph.replace-error',requestId:msg.requestId,code,message});
+   if(auth.role!=='editor'){reject('FORBIDDEN','View-only participants cannot edit');return}
+   if(!validId(msg.requestId)||!Number.isInteger(msg.baseRevision)||!validGraph(msg.graph)){reject('BAD_REQUEST','Invalid board or replacement request');return}
+   const prior=this.sql.exec('SELECT revision FROM processed_ops WHERE op_id=?',msg.requestId).toArray()[0];
+   if(prior){wsSend(ws,{type:'graph.replaced',requestId:msg.requestId});return}
+   const meta=this.ctx.storage.kv.get('meta');
+   if(msg.baseRevision!==meta.revision){reject('REVISION_CONFLICT','The board changed. Copy your JSON, close this view, and reopen it before trying again.');return}
+   try{
+    const old=this.readGraph(),updated={classes:msg.graph.classes,nodes:msg.graph.nodes,edges:msg.graph.edges};
+    const next={...meta,classes:updated.classes,revision:meta.revision+1,classesRev:meta.classesRev+1};
+    this.ctx.storage.transactionSync(()=>{this.saveGraph(updated,old);this.ctx.storage.kv.put('meta',next);this.sql.exec('INSERT INTO processed_ops(op_id,revision,created_at) VALUES(?,?,?)',msg.requestId,next.revision,Date.now())});
+    wsSend(ws,{type:'graph.replaced',requestId:msg.requestId});
+    for(const socket of this.ctx.getWebSockets())try{socket.close(1012,'Board replaced; reconnect to refresh')}catch(e){console.error('Could not reconnect participant:',e)}
+   }catch(e){console.error('Graph replacement failed:',e);reject('REPLACE_FAILED','Could not save the replacement board.')}
+   return;
+  }
   if(msg.type==='ops'){
    if(auth.role!=='editor'){wsSend(ws,{type:'error',code:'FORBIDDEN',message:'View-only participants cannot edit'});return}
    if(!validId(msg.opId)||!Array.isArray(msg.ops)||!msg.ops.length||msg.ops.length>MAX_OPS){wsSend(ws,{type:'error',code:'BAD_REQUEST',message:'Invalid operations'});return}

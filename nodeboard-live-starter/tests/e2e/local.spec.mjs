@@ -54,6 +54,31 @@ test('bulk JSON editing validates atomically and updates changed relationship te
   expect(graph).toEqual(original);
 });
 
+test('board JSON view validates replacement and supports local undo', async ({ page }) => {
+  const original = await localGraph(page);
+  await page.locator('#jsonViewBtn').click();
+  const input = page.locator('#graphJson');
+  const board = JSON.parse(await input.inputValue());
+  expect(board.nodes).toEqual(original.nodes);
+  await input.fill('not json');
+  await page.locator('#applyGraphJson').click();
+  await expect(page.locator('#graphJsonFeedback')).toContainText('Invalid JSON');
+  expect(await localGraph(page)).toEqual(original);
+  board.edges[0].to = 'missing';
+  await input.fill(JSON.stringify(board));
+  await page.locator('#applyGraphJson').click();
+  await expect(page.locator('#graphJsonFeedback')).toContainText('Invalid connection');
+  expect(await localGraph(page)).toEqual(original);
+  board.edges[0].to = 'n2';
+  board.nodes[0].name = 'JSON edited';
+  await input.fill(JSON.stringify(board));
+  page.once('dialog', dialog => dialog.accept());
+  await page.locator('#applyGraphJson').click();
+  await expect(page.locator('#scene')).toContainText('JSON edited');
+  await page.locator('#undoBtn').click();
+  expect(await localGraph(page)).toEqual(original);
+});
+
 test('double-click creates a connected node with inline naming', async ({ page }) => {
   await page.locator('#canvas').dblclick({ position: { x: 760, y: 615 } });
   await expect(page.locator('#quickedit')).toBeVisible();
