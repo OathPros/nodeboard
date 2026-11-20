@@ -101,7 +101,7 @@ test('document library creates, opens, shares and restores edits', async ({ brow
     await expect(bob.page.locator('#liveStatus')).toContainText('Live · connected');
     await expect(bob.page.locator('#scene')).toContainText('Saved node');
     await bob.page.locator('#scene .node').dblclick();
-    await bob.page.locator('#nodeNameInput').fill('Edited by Bob');
+    await bob.page.locator('#ctxLabel').fill('Edited by Bob');
     await bob.page.keyboard.press('Escape');
     await expect(alice.page.locator('#scene')).toContainText('Edited by Bob');
     await alice.page.locator('[data-unshare="bob@example.test"]').click();
@@ -188,6 +188,7 @@ test('profile menu and dark mode work at narrow widths and persist', async ({ pa
   expect(box.x + box.width).toBeLessThanOrEqual(320);
   await button.click();
   await expect(page.locator('#profileAccount')).toHaveText('Sign in');
+  await page.locator('#canvasSettingsBtn').click();
   await page.locator('#themeToggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.reload();

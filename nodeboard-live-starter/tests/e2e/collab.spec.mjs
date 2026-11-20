@@ -32,6 +32,7 @@ async function join(browser, link, name) {
 
 async function createNode(page, x, y, name, rel) {
   await page.locator('#canvas').dblclick({ position: { x, y } });
+  await page.locator('[data-canvas-action="connected"]').click();
   await expect(page.locator('#quickedit')).toBeVisible();
   await page.keyboard.type(name);
   await page.keyboard.press('Enter');
@@ -86,6 +87,11 @@ test('two editors and one viewer collaborate in real time', async ({ browser }) 
         await C.page.locator('#canvas').dblclick({ position: { x: 500, y: 550 } });
         await expect(C.page.locator('#scene .node')).toHaveCount(before);
         await expect(C.page.locator('#quickedit')).toBeHidden();
+        await expect(C.page.locator('[data-canvas-action="appearance"]')).toBeVisible();
+        await expect(C.page.locator('[data-canvas-action="new"]')).toHaveCount(0);
+        await C.page.locator('[data-canvas-action="appearance"]').click();
+        await expect(C.page.locator('#canvasSettingsBackdrop')).toBeVisible();
+        await C.page.locator('#closeCanvasSettings').click();
 
         // editor reload: reconnects and keeps full graph
         await B.page.reload();
@@ -300,7 +306,7 @@ test('board JSON replaces a live board and reconnects all participants', async (
     changed.nodes[0].name = 'Unapplied edit';
     await A.page.locator('#graphJson').fill(JSON.stringify(changed));
     await B.page.locator('#scene .node').first().dblclick();
-    await B.page.locator('#nodeNameInput').fill('Edited elsewhere');
+    await B.page.locator('#ctxLabel').fill('Edited elsewhere');
     await B.page.keyboard.press('Escape');
     await expect(A.page.locator('#scene')).toContainText('Edited elsewhere');
     await A.page.locator('#applyGraphJson').click();

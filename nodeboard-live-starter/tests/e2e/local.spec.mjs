@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 
 const localGraph = page => page.evaluate(() => JSON.parse(localStorage.getItem('nodeboard-v1.1')));
+async function newConnectedNode(page, x = 760, y = 615) {
+  await page.locator('#canvas').dblclick({ position: { x, y } });
+  await page.locator('[data-canvas-action="connected"]').click();
+}
 
 test.beforeEach(async ({ page }) => {
   const errors = [];
@@ -17,6 +21,7 @@ test.afterEach(async ({ page }) => {
 test('sample graph renders and persists locally', async ({ page }) => {
   await expect(page.locator('#scene .node')).toHaveCount(5);
   await expect(page.locator('#scene .edge')).toHaveCount(4);
+  await expect(page.locator('[data-node-id="n1"] .svg-shape')).toHaveAttribute('fill', 'rgba(224,90,114,0.105)');
   await expect(page.locator('#stats')).toContainText('5 nodes · 4 connections');
   const g = await localGraph(page);
   expect(g.nodes).toHaveLength(5);
@@ -55,8 +60,9 @@ test('canvas appearance is customizable, persistent and independent of the graph
   await expect(workspace).toHaveCSS('background-image', /radial-gradient/);
   await expect(workspace).toHaveCSS('background-size', '22px 22px');
   await page.locator('#closeCanvasSettings').click();
-  await page.locator('#profileBtn').click();
+  await openSettings();
   await page.locator('#themeToggle').click();
+  await page.locator('#closeCanvasSettings').click();
   await expect(workspace).toHaveCSS('background-color', 'rgb(25, 35, 48)');
   await page.reload();
   await expect(workspace).toHaveCSS('background-color', 'rgb(25, 35, 48)');
@@ -67,9 +73,8 @@ test('canvas appearance is customizable, persistent and independent of the graph
 test('canvas appearance is accessible on a small screen and respects the theme base', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 600 });
   await page.locator('#profileBtn').click();
-  await page.locator('#themeToggle').click();
-  await page.locator('#profileBtn').click();
   await page.locator('#canvasSettingsBtn').click();
+  await page.locator('#themeToggle').click();
   await expect(page.locator('#canvasColor')).toHaveValue('#192330');
   await page.locator('#patternOpacity').fill('0');
   await expect(page.locator('#workspace')).toHaveCSS('background-image', /radial-gradient\(rgba\(71, 85, 106, 0\)/);
@@ -77,6 +82,40 @@ test('canvas appearance is accessible on a small screen and respects the theme b
   await expect(page.locator('#workspace')).toHaveCSS('background-color', 'rgb(25, 35, 48)');
   await page.locator('#closeCanvasSettings').click();
   await expect(page.locator('#canvasSettingsBackdrop')).toBeHidden();
+});
+
+test('right-click and double-click open the same context options', async ({ page }) => {
+  const context = page.locator('#context');
+  const blank = page.locator('#canvas');
+  await blank.click({ button: 'right', position: { x: 760, y: 615 } });
+  const canvasMenu = await context.innerHTML();
+  await expect(page.locator('[data-canvas-action="appearance"]')).toBeVisible();
+  await page.locator('[data-canvas-action="appearance"]').click();
+  await expect(page.locator('#themeToggle')).toBeVisible();
+  await page.locator('#closeCanvasSettings').click();
+  await expect(blank).toBeFocused();
+  await blank.dblclick({ position: { x: 760, y: 615 } });
+  expect(await context.innerHTML()).toBe(canvasMenu);
+  const before = await localGraph(page);
+  await page.locator('[data-canvas-action="new"]').click();
+  await page.locator('#nodeNameInput').fill('Independent node');
+  await page.keyboard.press('Escape');
+  const after = await localGraph(page);
+  expect(after.nodes).toHaveLength(before.nodes.length + 1);
+  expect(after.edges).toHaveLength(before.edges.length);
+  const node = page.locator('[data-node-id="n1"]');
+  await node.click({ button: 'right' });
+  const nodeMenu = await context.innerHTML();
+  await page.keyboard.press('Escape');
+  await node.dblclick();
+  expect(await context.innerHTML()).toBe(nodeMenu);
+  await page.keyboard.press('Escape');
+  const edge = page.locator('[data-edge-id="e1"] path').first();
+  await edge.click({ button: 'right', force: true });
+  const edgeMenu = await context.innerHTML();
+  await page.keyboard.press('Escape');
+  await edge.dblclick({ force: true });
+  expect(await context.innerHTML()).toBe(edgeMenu);
 });
 
 test('bulk JSON editing validates atomically and updates changed relationship templates', async ({ page }) => {
@@ -135,8 +174,8 @@ test('board JSON view validates replacement and supports local undo', async ({ p
   expect(await localGraph(page)).toEqual(original);
 });
 
-test('double-click creates a connected node with inline naming', async ({ page }) => {
-  await page.locator('#canvas').dblclick({ position: { x: 760, y: 615 } });
+test('canvas menu creates a connected node with inline naming', async ({ page }) => {
+  await newConnectedNode(page);
   await expect(page.locator('#quickedit')).toBeVisible();
   await expect(page.locator('#nodeNameInput')).toBeFocused();
   await page.keyboard.type('Test Node');
@@ -186,7 +225,7 @@ test('right-click context menu renames a node', async ({ page }) => {
 });
 
 test('undo/redo work in local mode', async ({ page }) => {
-  await page.locator('#canvas').dblclick({ position: { x: 760, y: 615 } });
+  await newConnectedNode(page);
   await page.keyboard.type('Temp');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
@@ -269,7 +308,7 @@ test('legacy numeric-class JSON is migrated to stable class ids', async ({ page 
 });
 
 test('local graph persists across reload', async ({ page }) => {
-  await page.locator('#canvas').dblclick({ position: { x: 760, y: 615 } });
+  await newConnectedNode(page);
   await page.keyboard.type('Persistent');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Escape');
@@ -280,23 +319,23 @@ test('local graph persists across reload', async ({ page }) => {
 
 test('double-click edits existing node and click or tab away saves without Enter', async ({ page }) => {
   await page.locator('[data-node-id="n1"]').dblclick();
-  await expect(page.locator('#quickedit')).toBeVisible();
-  await expect(page.locator('#nodeNameInput')).toHaveValue('Email & Calendaring');
-  await page.locator('#nodeNameInput').fill('Edited on blur');
+  await expect(page.locator('#context')).toBeVisible();
+  await expect(page.locator('#ctxLabel')).toHaveValue('Email & Calendaring');
+  await page.locator('#ctxLabel').fill('Edited on blur');
   await page.locator('#zoomIn').click();
-  await expect(page.locator('#quickedit')).toBeHidden();
+  await expect(page.locator('#context')).toBeHidden();
   expect((await localGraph(page)).nodes.find(n => n.id === 'n1').name).toBe('Edited on blur');
   expect((await localGraph(page)).nodes).toHaveLength(5);
   await page.locator('[data-node-id="n1"]').dblclick();
-  await page.locator('#nodeNameInput').fill('Edited on tab');
+  await page.locator('#ctxLabel').fill('Edited on tab');
   await page.keyboard.press('Tab');
-  await expect(page.locator('#quickedit')).toBeHidden();
   expect((await localGraph(page)).nodes.find(n => n.id === 'n1').name).toBe('Edited on tab');
+  await page.keyboard.press('Escape');
   await page.locator('[data-node-id="n1"]').click({ button: 'right' });
   await page.locator('#ctxLabel').fill('Context blur');
   await page.locator('#zoomOut').click();
   expect((await localGraph(page)).nodes.find(n => n.id === 'n1').name).toBe('Context blur');
-  await page.locator('#canvas').dblclick({ position: { x: 760, y: 615 } });
+  await newConnectedNode(page);
   await page.locator('#nodeNameInput').fill('Blurred child');
   await page.keyboard.press('Enter');
   await page.locator('#relationshipInput').fill('BLURRED_REL');
@@ -308,7 +347,7 @@ test('double-click edits existing node and click or tab away saves without Enter
 
 test('editor fits within workspace after zoom and near the edge', async ({ page }) => {
   for (let i = 0; i < 8; i++) await page.locator('#zoomIn').click();
-  await page.locator('#canvas').dblclick({ position: { x: 760, y: 615 } });
+  await newConnectedNode(page);
   await expect(page.locator('#quickedit')).toBeVisible();
   const popup = await page.locator('#quickedit').boundingBox();
   const workspace = await page.locator('#workspace').boundingBox();

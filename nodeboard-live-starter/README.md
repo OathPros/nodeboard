@@ -18,14 +18,16 @@ directly from disk works as a fully-featured local editor (no server).
 
 ## Editing
 
-- Open the profile menu and choose **Canvas appearance** to set a background
+- Open **Canvas appearance** from the profile menu or the blank canvas menu to
+  switch light/dark mode or set a background
   colour and opacity, switch between dots, grid, and no pattern, and adjust
   pattern colour, opacity, and spacing. Changes are saved in this browser,
   apply across boards, and do not affect collaborators or exports. Reset returns
   to the current light or dark theme's defaults.
-- Double-click an existing node or line to edit it; click or tab away to save.
-  Double-click empty canvas to create a node, or select a node and press Tab to
-  add a child.
+- Double-click or right-click a node, line, or blank canvas for the same options.
+  Edit labels in the menu and click or tab away to save. On the canvas, choose
+  **New node** or **New connected node**; alternatively, select a node and press
+  Tab to add a child.
 - Select a node or line and use Ctrl/Cmd+C and Ctrl/Cmd+V, or right-click and
   choose Copy/Paste. The graph clipboard is in the current tab. Pasted nodes are
   independent copies; pasted lines connect the same existing endpoints.
