@@ -38,6 +38,22 @@ function applyOps(g,ops) {
  if(!validGraph(g))throw new Error('Changes would produce an invalid graph');
  return g;
 }
+function historyMatches(g,ops,expected){
+ if(!Array.isArray(expected)||expected.length!==ops.length)return false;
+ const deletedEdges=new Set(ops.filter(o=>o?.type==='edge.delete').map(o=>o.id));
+ const equal=(a,b)=>JSON.stringify(a??null)===JSON.stringify(b??null);
+ for(let i=0;i<ops.length;i++){const op=ops[i],want=expected[i];if(!op||typeof op.type!=='string')return false;
+  if(op.type==='classes.replace'){if(!equal(g.classes,want))return false;continue}
+  const m=/^(node|edge)\.(upsert|patch|delete)$/.exec(op.type);if(!m)return false;
+  const entity=m[1],action=m[2],id=op.id||op[entity]?.id,actual=g[entity==='node'?'nodes':'edges'].find(x=>x.id===id);
+  if(action==='upsert'){if(want!==null||actual)return false;continue}
+  if(!actual||!want||want.id!==id)return false;
+  const keys=action==='patch'?Object.keys(op.patch||{}):entity==='node'?['x','y','name','classId','colorOverride','shapeOverride']:['from','to','label'];
+  if(!keys.every(k=>equal(actual[k],want[k])))return false;
+  if(entity==='node'&&action==='delete'&&g.edges.some(e=>(e.from===id||e.to===id)&&!deletedEdges.has(e.id)))return false;
+ }
+ return true;
+}
 function wsSend(ws,msg){try{ws.send(JSON.stringify(msg))}catch(_){}}
 
 function directory(env){return env.DOCUMENT_DIRECTORY.get(env.DOCUMENT_DIRECTORY.idFromName('directory'))}
@@ -225,6 +241,22 @@ export class BoardSession extends DurableObject {
     wsSend(ws,{type:'graph.replaced',requestId:msg.requestId});
     for(const socket of this.ctx.getWebSockets())try{socket.close(1012,'Board replaced; reconnect to refresh')}catch(e){console.error('Could not reconnect participant:',e)}
    }catch(e){console.error('Graph replacement failed:',e);reject('REPLACE_FAILED','Could not save the replacement board.')}
+   return;
+  }
+  if(msg.type==='history-apply'){
+   const reject=(code,message)=>wsSend(ws,{type:'history.result',requestId:msg.requestId,ok:false,code,message});
+   if(auth.role!=='editor'){reject('FORBIDDEN','View-only participants cannot edit');return}
+   if(!validId(msg.requestId)||!Number.isInteger(msg.baseRevision)||!Array.isArray(msg.ops)||!msg.ops.length||msg.ops.length>MAX_NODES*2+MAX_EDGES*2+1){reject('BAD_REQUEST','Invalid undo or redo request');return}
+   const meta=this.ctx.storage.kv.get('meta');
+   if(msg.baseRevision!==meta.revision){reject('REVISION_CONFLICT','The board changed before undo or redo could be applied. Try again after syncing.');return}
+   try{
+    const old=this.readGraph();if(!historyMatches(old,msg.ops,msg.expected)){reject('HISTORY_CONFLICT','The affected items changed since this edit.');return}
+    const updated=applyOps(structuredClone(old),msg.ops),changesClasses=msg.ops.some(o=>o.type==='classes.replace');
+    const next={...meta,classes:updated.classes,revision:meta.revision+1,classesRev:meta.classesRev+(changesClasses?1:0)};
+    this.ctx.storage.transactionSync(()=>{this.saveGraph(updated,old);this.ctx.storage.kv.put('meta',next)});
+    wsSend(ws,{type:'history.result',requestId:msg.requestId,ok:true,revision:next.revision,classesRev:next.classesRev,ops:msg.ops});
+    await this.broadcast({type:'ops',clientId:auth.clientId,ops:msg.ops,revision:next.revision,classesRev:next.classesRev});
+   }catch(e){reject('INVALID_CHANGE',String(e.message||'Could not apply undo or redo'))}
    return;
   }
   if(msg.type==='ops'){

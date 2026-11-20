@@ -35,6 +35,16 @@ directly from disk works as a fully-featured local editor (no server).
   blank canvas or press Escape to clear the selection.
 - Select a source node, then Ctrl-click (Cmd-click on Mac) another node to
   connect them. The context menu's Connect action also starts a connection.
+- Undo and redo with the toolbar, profile menu, Ctrl/Cmd+Z and Ctrl/Cmd+Y
+  (or Ctrl/Cmd+Shift+Z). History is kept in the current tab for up to 70
+  changes and is cleared on reload or switching boards. On shared boards undo
+  applies only your own changes; it is blocked if a later edit conflicts, and
+  waits for pending changes to sync. It affects everyone on that board.
+- Choose **Save local file** (or **Save local JSON file** in the profile menu)
+  to download an editable backup without signing in. **Open local JSON file**
+  in the profile menu opens one as the browser's local board after confirmation;
+  it does not modify a shared board. Local boards also save automatically in
+  browser storage, which may be cleared, so keep file backups.
 - Select a node or line and use Ctrl/Cmd+C and Ctrl/Cmd+V, or right-click and
   choose Copy/Paste. The graph clipboard is in the current tab. Pasted nodes are
   independent copies; pasted lines connect the same existing endpoints.
@@ -42,7 +52,7 @@ directly from disk works as a fully-featured local editor (no server).
   board or paste edited Nodeboard JSON and replace it. Invalid data is rejected;
   shared-board replacement affects everyone and reconnects participants. Ask
   collaborators to pause and sync their edits before replacing a shared board.
-  Local replacement can be undone; live replacement cannot. Export a backup first.
+  Replacement can be undone if no conflicting edits intervene. Export a backup first.
 - Signed-in users can choose **Import JSON as new document** on Home. The name
   field is optional; the filename is used when it is blank. The original board
   remains unchanged. Imports and replacements are limited to 400 KB of graph
@@ -70,7 +80,7 @@ directly from disk works as a fully-featured local editor (no server).
   Changed or new templates update matching existing lines and add missing
   inverse lines; removing a template leaves lines unchanged. Replacement is
   rejected if it would orphan nodes or is invalid. Export a JSON backup first
-  for significant changes, especially in live sessions where undo is unavailable.
+  for significant changes, especially on shared boards.
 
 ## Tests
 
@@ -186,7 +196,8 @@ origin. `wrangler.jsonc` includes the SQLite Durable Object migration
 
 - Two people editing the *same field* of the same node at the same moment is
   server-ordered last-write-wins (no CRDT). Different fields merge cleanly.
-- Undo/redo is local-mode only; collaborative undo is deliberately disabled.
+- Shared-board undo/redo is session-local and can be blocked by conflicting
+  changes, disconnection, or a request exceeding the 500 KB message limit.
 - The per-IP rate limit is per Worker isolate (best-effort); put Cloudflare WAF
   rate limiting or Turnstile in front for a public deployment.
 - Sessions have no automatic TTL; delete via the owner's **Delete session** control

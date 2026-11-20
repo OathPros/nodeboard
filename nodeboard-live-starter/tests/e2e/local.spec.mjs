@@ -318,6 +318,40 @@ test('undo/redo work in local mode', async ({ page }) => {
   await expect(page.locator('#scene .node')).toHaveCount(6);
 });
 
+test('local JSON file can be saved, reopened and undone on a narrow screen', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  const original = await localGraph(page);
+  await page.locator('#profileBtn').click();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.locator('#profileExport').click()]);
+  const { readFileSync } = await import('node:fs');
+  const saved = JSON.parse(readFileSync(await download.path(), 'utf8'));
+  expect(saved.nodes).toEqual(original.nodes);
+  saved.nodes[0].name = 'Local file restored';
+  await page.locator('#profileBtn').click();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#openLocalFile').click()]);
+  page.once('dialog', d => d.accept());
+  await chooser.setFiles({ name: 'board.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(saved)) });
+  await expect(page.locator('#scene')).toContainText('Local file restored');
+  await page.reload();
+  await expect(page.locator('#scene')).toContainText('Local file restored');
+  await page.locator('#profileBtn').click();
+  const [invalidChooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#openLocalFile').click()]);
+  page.once('dialog', d => d.accept());
+  await invalidChooser.setFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{') });
+  await expect(page.locator('#scene')).toContainText('Local file restored');
+  await page.locator('#profileBtn').click();
+  const [reopen] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#openLocalFile').click()]);
+  page.once('dialog', d => d.accept());
+  await reopen.setFiles({ name: 'board.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(original)) });
+  await expect(page.locator('#scene')).toContainText('Email & Calendaring');
+  await page.locator('#profileBtn').click();
+  await page.locator('#profileUndo').click();
+  await expect(page.locator('#scene')).toContainText('Local file restored');
+  await page.locator('#profileBtn').click();
+  await page.locator('#profileRedo').click();
+  await expect(page.locator('#scene')).toContainText('Email & Calendaring');
+});
+
 test('class modal: add class, duplicate style warning and override', async ({ page }) => {
   await page.locator('#editClasses').click();
   await expect(page.locator('#modalBackdrop')).toBeVisible();

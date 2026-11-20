@@ -150,6 +150,93 @@ test('multi-node operations and Ctrl-click connections sync to collaborators', a
   }
 });
 
+test('live undo and redo preserve unrelated edits and reject conflicts', async ({ browser }) => {
+  const A = await createSession(browser), B = await join(browser, A.editorLink, 'Bob');
+  try {
+    await A.page.locator('[data-node-id="n1"]').dblclick();
+    await A.page.locator('#ctxLabel').fill('Alice name');
+    await A.page.keyboard.press('Enter');
+    await expect(B.page.locator('[data-node-id="n1"]')).toContainText('Alice name');
+    await B.page.locator('[data-node-id="n1"]').click();
+    await B.page.keyboard.press('2');
+    await expect(A.page.locator('[data-node-id="n1"]')).toContainText('OFFERING');
+    await expect(A.page.locator('#undoBtn')).toBeEnabled();
+    await A.page.locator('#undoBtn').click();
+    await expect(B.page.locator('[data-node-id="n1"]')).toContainText('Email & Calendaring');
+    await expect(B.page.locator('[data-node-id="n1"]')).toContainText('OFFERING');
+    await expect(A.page.locator('#redoBtn')).toBeEnabled();
+    await A.page.locator('#redoBtn').click();
+    await expect(B.page.locator('[data-node-id="n1"]')).toContainText('Alice name');
+    await B.page.locator('[data-node-id="n1"]').dblclick();
+    await B.page.locator('#ctxLabel').fill('Bob name');
+    await B.page.keyboard.press('Enter');
+    await expect(A.page.locator('[data-node-id="n1"]')).toContainText('Bob name');
+    await A.page.locator('#undoBtn').click();
+    await expect(A.page.locator('#toast')).toContainText('changed since this edit');
+    await expect(B.page.locator('[data-node-id="n1"]')).toContainText('Bob name');
+  } finally { await A.context.close(); await B.context.close(); }
+});
+
+test('live undo and redo restore created nodes and their connections', async ({ browser }) => {
+  const A = await createSession(browser), B = await join(browser, A.editorLink, 'Bob');
+  try {
+    await createNode(A.page, 760, 615, 'Created', 'LINK');
+    await expect(B.page.locator('#scene')).toContainText('Created');
+    await expect(A.page.locator('#undoBtn')).toBeEnabled();
+    await A.page.locator('#undoBtn').click();
+    await expect(A.page.locator('#undoBtn')).toBeEnabled();
+    await A.page.locator('#undoBtn').click();
+    await expect(B.page.locator('#scene .node')).toHaveCount(5);
+    await expect(B.page.locator('#scene .edge')).toHaveCount(4);
+    await expect(A.page.locator('#redoBtn')).toBeEnabled();
+    await A.page.locator('#redoBtn').click();
+    await expect(A.page.locator('#redoBtn')).toBeEnabled();
+    await A.page.locator('#redoBtn').click();
+    await expect(B.page.locator('#scene')).toContainText('Created');
+    await expect(B.page.locator('#scene .edge')).toHaveCount(5);
+  } finally { await A.context.close(); await B.context.close(); }
+});
+
+test('live undo cannot delete a node with a collaborator’s new connection', async ({ browser }) => {
+  const A = await createSession(browser), B = await join(browser, A.editorLink, 'Bob');
+  try {
+    await createNode(A.page, 760, 615, 'Shared node', 'LINK');
+    await expect(B.page.locator('#scene')).toContainText('Shared node');
+    const newId = await B.page.locator('#scene .node').last().getAttribute('data-node-id');
+    await B.page.locator('[data-node-id="n3"]').click();
+    await B.page.locator(`[data-node-id="${newId}"]`).click({ modifiers: ['Control'] });
+    await B.page.locator('#nodeNameInput').fill('BOB_LINK');
+    await B.page.keyboard.press('Escape');
+    await expect(A.page.locator('#scene')).toContainText('BOB_LINK');
+    await expect(A.page.locator('#undoBtn')).toBeEnabled();
+    await A.page.locator('#undoBtn').click();
+    await expect(A.page.locator('#undoBtn')).toBeEnabled();
+    await A.page.locator('#undoBtn').click();
+    await expect(A.page.locator('#toast')).toContainText('Another connection uses a node');
+    await expect(B.page.locator(`[data-node-id="${newId}"]`)).toHaveCount(1);
+    await expect(B.page.locator('#scene')).toContainText('BOB_LINK');
+  } finally { await A.context.close(); await B.context.close(); }
+});
+
+test('opening a local file from a shared board leaves the shared board unchanged', async ({ browser }) => {
+  const A = await createSession(browser), B = await join(browser, A.editorLink, 'Bob');
+  try {
+    await A.page.locator('#jsonViewBtn').click();
+    const graph = JSON.parse(await A.page.locator('#graphJson').inputValue());
+    await A.page.locator('#closeGraphJson').click();
+    graph.nodes[0].name = 'Local copy only';
+    await A.page.locator('#profileBtn').click();
+    const [chooser] = await Promise.all([A.page.waitForEvent('filechooser'), A.page.locator('#openLocalFile').click()]);
+    A.page.once('dialog', d => d.accept());
+    await chooser.setFiles({ name: 'copy.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(graph)) });
+    await expect(A.page.locator('#liveStatus')).toContainText('Local board');
+    await expect(A.page.locator('#scene')).toContainText('Local copy only');
+    await expect(B.page.locator('#scene')).not.toContainText('Local copy only');
+    await B.page.reload();
+    await expect(B.page.locator('#scene')).not.toContainText('Local copy only');
+  } finally { await A.context.close(); await B.context.close(); }
+});
+
 test('class add/delete sync across editors with node reassignment', async ({ browser }) => {
   const A = await createSession(browser);
   try {
@@ -334,6 +421,13 @@ test('board JSON replaces a live board and reconnects all participants', async (
     await expect(B.page.locator('#scene')).toContainText('Replacement board', { timeout: 15000 });
     await expect(B.page.locator('#scene .node')).toHaveCount(125);
     await expect(V.page.locator('#scene')).toContainText('Replacement board', { timeout: 15000 });
+    await expect(A.page.locator('#undoBtn')).toBeEnabled();
+    await A.page.locator('#undoBtn').click();
+    await expect(B.page.locator('#scene .node')).toHaveCount(5);
+    await expect(A.page.locator('#redoBtn')).toBeEnabled();
+    await A.page.locator('#redoBtn').click();
+    await expect(B.page.locator('#scene .node')).toHaveCount(125);
+    await expect(B.page.locator('#scene')).toContainText('Replacement board');
     await B.page.reload();
     await expect(B.page.locator('#scene')).toContainText('Replacement board', { timeout: 15000 });
     await A.page.locator('#jsonViewBtn').click();
@@ -374,4 +468,26 @@ test('server rejects stale and view-only full-board replacements', async ({ brow
   } finally {
     await A.context.close();
   }
+});
+
+test('server enforces revision and editor role for collaborative undo', async ({ browser }) => {
+  const A = await createSession(browser);
+  try {
+    const attempt = (link, baseRevision) => A.page.evaluate(({ link, baseRevision }) => new Promise((resolve, reject) => {
+      const invite = new URLSearchParams(new URL(link).hash.slice(1));
+      const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/sessions/${invite.get('s')}/ws`);
+      ws.onopen = () => ws.send(JSON.stringify({ type: 'auth', token: invite.get('key'), clientId: crypto.randomUUID(), name: 'Test' }));
+      ws.onmessage = event => {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'welcome') ws.send(JSON.stringify({ type: 'history-apply', requestId: 'history-attempt', baseRevision, ops: [{ type: 'node.patch', id: 'n1', patch: { name: 'Should not apply' } }], expected: [{ id: 'n1', name: 'stale value' }] }));
+        if (msg.type === 'history.result') { resolve(msg.code); ws.close(); }
+      };
+      ws.onerror = () => reject(new Error('WebSocket connection failed'));
+      setTimeout(() => reject(new Error('No history response')), 10000);
+    }), { link, baseRevision });
+    expect(await attempt(A.editorLink, -1)).toBe('REVISION_CONFLICT');
+    expect(await attempt(A.editorLink, 0)).toBe('HISTORY_CONFLICT');
+    expect(await attempt(A.viewerLink, 0)).toBe('FORBIDDEN');
+    await expect(A.page.locator('#scene')).not.toContainText('Should not apply');
+  } finally { await A.context.close(); }
 });

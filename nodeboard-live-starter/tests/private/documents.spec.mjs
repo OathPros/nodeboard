@@ -104,6 +104,12 @@ test('document library creates, opens, shares and restores edits', async ({ brow
     await bob.page.locator('#ctxLabel').fill('Edited by Bob');
     await bob.page.keyboard.press('Escape');
     await expect(alice.page.locator('#scene')).toContainText('Edited by Bob');
+    await expect(bob.page.locator('#undoBtn')).toBeEnabled();
+    await bob.page.locator('#undoBtn').click();
+    await expect(alice.page.locator('#scene')).toContainText('Saved node');
+    await expect(bob.page.locator('#redoBtn')).toBeEnabled();
+    await bob.page.locator('#redoBtn').click();
+    await expect(alice.page.locator('#scene')).toContainText('Edited by Bob');
     await alice.page.locator('[data-unshare="bob@example.test"]').click();
     await expect(bob.page.locator('#liveStatus')).toContainText('Local board');
     await alice.page.locator('#returnLocal').click();
