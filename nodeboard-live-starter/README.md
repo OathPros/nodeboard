@@ -44,8 +44,8 @@ npm run test:all  # typecheck + unit/integration + both E2E suites
 
 ## Private accounts and documents
 
-Accounts are optional. Private document access uses Supabase Auth and Google
-sign-in; Cloudflare stores the documents and their access lists. A person must
+Accounts are optional. Private document access uses Supabase Auth with Google
+or a one-time email code; Cloudflare stores the documents and their access lists. A person must
 sign in once before an owner can share with their verified account email.
 Owners can grant viewer or editor access, change that access, and remove it.
 Revocation closes existing connections. A viewer can see and export the board.
@@ -76,6 +76,17 @@ To configure accounts:
    configured accounts, override these variables with empty values.
 4. Run `npm run build`, then deploy. The `v2` Durable Object migration creates
    the document directory; do not remove or rename its binding.
+
+For email codes, enable the Supabase Email provider and configure
+[custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp). The default
+service is restricted to project-team email addresses and is not suitable for
+general users. For example, [Resend's SMTP integration](https://resend.com/docs/send-with-supabase-smtp)
+requires a verified sending domain. Enter SMTP credentials in Supabase, never
+in this repository. In Supabase's **Magic Link** and **Confirm signup** email
+templates, include `{{ .Token }}` so both existing and new users receive a
+code, rather than only a link. Keep email confirmation enabled. Check the
+provider's quotas and Supabase Auth rate limits and consider CAPTCHA before
+opening sign-ups widely. Test delivery and sign-in with a real email address.
 
 Supabase's free projects may pause after inactivity. Free plan quotas apply to
 Supabase and Cloudflare. The private document directory is a single Durable

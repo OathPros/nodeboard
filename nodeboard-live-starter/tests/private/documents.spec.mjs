@@ -187,7 +187,7 @@ test('profile menu and dark mode work at narrow widths and persist', async ({ pa
   const box = await button.boundingBox();
   expect(box.x + box.width).toBeLessThanOrEqual(320);
   await button.click();
-  await expect(page.locator('#profileAccount')).toHaveText('Sign in with Google');
+  await expect(page.locator('#profileAccount')).toHaveText('Sign in');
   await page.locator('#themeToggle').click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.reload();
@@ -195,4 +195,44 @@ test('profile menu and dark mode work at narrow widths and persist', async ({ pa
   await button.click();
   await page.locator('#profileAccount').click();
   await expect(page.locator('#signInGoogle')).toBeVisible();
+});
+
+test('email sign-in sends and verifies a one-time code', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(String(e)));
+  await page.route('**/auth.js', route => route.fulfill({
+    contentType: 'text/javascript',
+    body: `window.createNodeboardAuth=()=>{let session=null,callback=()=>{};window.otpRequests=[];return {auth:{
+      getSession:async()=>({data:{session}}),
+      onAuthStateChange:fn=>{callback=fn},
+      signInWithOtp:async args=>{window.otpRequests.push(args);return {error:args.email==='error@example.test'?{message:'Email service unavailable'}:null}},
+      verifyOtp:async args=>{window.otpRequests.push(args);if(args.token!=='123456')return {error:{message:'Invalid code'}};session={access_token:${JSON.stringify(token('alice'))}};callback('SIGNED_IN',session);return {error:null}},
+      signOut:async()=>({error:null})
+    }}}`,
+  }));
+  await page.goto('/');
+  await page.locator('#profileBtn').click();
+  await page.locator('#profileAccount').click();
+  await expect(page.locator('#sendEmailCode')).toBeEnabled();
+  await page.locator('#signInEmail').fill('error@example.test');
+  await page.locator('#sendEmailCode').click();
+  await expect(page.locator('#documentsError')).toContainText('Email service unavailable');
+  await page.locator('#signInEmail').fill('Alice@example.test');
+  await page.locator('#sendEmailCode').click();
+  await expect(page.locator('#codeSentStatus')).toContainText('alice@example.test');
+  await page.locator('#emailCode').fill('000000');
+  await page.locator('#verifyEmailCode').click();
+  await expect(page.locator('#documentsError')).toContainText('Invalid code');
+  await page.locator('#signInEmail').fill('bob@example.test');
+  await expect(page.locator('#codeForm')).toBeHidden();
+  await page.locator('#signInEmail').fill('alice@example.test');
+  await page.locator('#sendEmailCode').click();
+  await page.locator('#emailCode').fill('123456');
+  await page.locator('#verifyEmailCode').click();
+  await expect(page.locator('#accountStatus')).toContainText('alice@example.test');
+  await expect(page.locator('#signedIn')).toBeVisible();
+  const requests = await page.evaluate(() => window.otpRequests);
+  expect(requests[1]).toEqual({ email: 'alice@example.test', options: { shouldCreateUser: true } });
+  expect(requests.at(-1)).toEqual({ email: 'alice@example.test', token: '123456', type: 'email' });
+  expect(errors).toEqual([]);
 });
