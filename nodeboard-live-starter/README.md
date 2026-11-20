@@ -61,10 +61,10 @@ To configure accounts:
    authorized redirect URI. Configure the consent screen for external users;
    testing mode only permits configured test users. Configure the Google client
    ID and secret in Supabase's Google provider settings. Never commit the secret.
-3. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` for the Worker from
-   the Supabase project URL and publishable (or legacy anon) key. These two
-   values are public, not the service-role key. They can be set using
-   `wrangler secret put SUPABASE_URL` and `wrangler secret put SUPABASE_PUBLISHABLE_KEY`.
+3. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `wrangler.jsonc`
+   using the Supabase project URL and publishable (or legacy anon) key. These
+   values are public, not the service-role key. For local development without
+   configured accounts, override these variables with empty values.
 4. Run `npm run build`, then deploy. The `v2` Durable Object migration creates
    the document directory; do not remove or rename its binding.
 

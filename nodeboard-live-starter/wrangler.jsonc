@@ -3,6 +3,10 @@
   "name": "nodeboard-live",
   "main": "src/index.js",
   "compatibility_date": "2026-10-28",
+  "vars": {
+    "SUPABASE_URL": "https://mmianijqsfcpuucxgaji.supabase.co",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_scPnanNU2p-Y2QzEy-b5Qw_M--LyovU"
+  },
   "durable_objects": {
     "bindings": [{"name": "BOARD_SESSIONS", "class_name": "BoardSession"}, {"name": "DOCUMENT_DIRECTORY", "class_name": "DocumentDirectory"}]
   },
