@@ -66,13 +66,25 @@ export default {
   const url=new URL(request.url),path=url.pathname;
   if(path==='/api/health')return json({ok:true,service:'nodeboard-live',version:1});
   if(path==='/api/account/config'&&request.method==='GET')return json({enabled:!!(env.SUPABASE_URL&&env.SUPABASE_PUBLISHABLE_KEY),url:env.SUPABASE_URL||null,key:env.SUPABASE_PUBLISHABLE_KEY||null});
-  if(path.startsWith('/api/documents')||path==='/api/account'){
+  if(path.startsWith('/api/documents')||path.startsWith('/api/templates')||path==='/api/account'){
    try {
     const wsMatch=/^\/api\/documents\/([A-Za-z0-9_-]{8,120})\/ws$/.exec(path);
     if(wsMatch){if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'Expected WebSocket upgrade'},426);const origin=request.headers.get('Origin');if(origin&&origin!==url.origin)return json({error:'Cross-origin connections not allowed'},403);return documentStub(env,wsMatch[1]).fetch(request)}
     const user=await requestUser(request,env);if(!user)return json({error:'Sign in required'},401);
     const registered=await directoryCall(env,'/register',{user});if(!registered.ok)return registered;
     if(path==='/api/account'&&request.method==='GET')return json({user});
+    if(path==='/api/templates'&&request.method==='GET')return directoryCall(env,'/templates-list',{user});
+    if(path==='/api/templates'&&request.method==='POST'){
+     if(rateLimited(request.headers.get('CF-Connecting-IP')||'local'))return json({error:'Too many templates created — try again later'},429);
+     if(Number(request.headers.get('content-length')||0)>450_000)return json({error:'Template too large'},413);
+     const data=await request.json(),name=typeof data.name==='string'?data.name.trim().slice(0,80):'';
+     if(!name||!validGraph({classes:data.classes,nodes:[],edges:[]}))return json({error:'Invalid template name or classes'},400);
+     const classes=data.classes.map(c=>({id:c.id,key:c.key,name:c.name,shape:c.shape,color:c.color,...(c.relations?{relations:c.relations.map(r=>({to:r.to,label:r.label,inverse:r.inverse}))}:{})}));
+     if(JSON.stringify(classes).length>400_000)return json({error:'Template too large'},413);
+     return directoryCall(env,'/templates-create',{user,id:token(16),name,classes});
+    }
+    const templateMatch=/^\/api\/templates\/([A-Za-z0-9_-]{8,120})$/.exec(path);
+    if(templateMatch&&request.method==='DELETE')return directoryCall(env,'/templates-delete',{user,id:templateMatch[1]});
     if(path==='/api/documents'&&request.method==='GET')return directoryCall(env,'/list',{user});
     if(path==='/api/documents'&&request.method==='POST'){
      if(rateLimited(request.headers.get('CF-Connecting-IP')||'local'))return json({error:'Too many documents created — try again later'},429);

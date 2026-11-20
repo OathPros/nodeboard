@@ -52,6 +52,15 @@ Revocation closes existing connections. A viewer can see and export the board.
 Existing local boards and invitation-link sessions remain separate; creating a
 private copy does **not** disable existing links.
 
+Signed-in users start at **Home** in a new tab; an active document or invitation
+still opens in the editor. Use **Home** to search and manage documents, or open the profile bubble
+for sign-in, saved templates, display mode, shortcuts, and JSON export. In
+**Saved templates**, save the current board's classes and relationship defaults
+to your account. Name a document and choose **New document** beside a template
+to create an empty board with those classes; this does not change existing
+boards. Templates are private to the account that saved them. Dark mode is
+remembered in the current browser.
+
 To configure accounts:
 
 1. Create a Supabase project on the free plan. In Authentication, set the site

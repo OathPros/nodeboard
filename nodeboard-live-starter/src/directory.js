@@ -12,6 +12,7 @@ export class DocumentDirectory extends DurableObject {
       CREATE TABLE IF NOT EXISTS documents (id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL, created INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS members (document_id TEXT NOT NULL, user_id TEXT NOT NULL, role TEXT NOT NULL, PRIMARY KEY(document_id,user_id));
       CREATE INDEX IF NOT EXISTS member_user ON members(user_id);
+      CREATE TABLE IF NOT EXISTS templates (id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL, classes TEXT NOT NULL, created INTEGER NOT NULL);
     `);
   }
 
@@ -39,6 +40,18 @@ export class DocumentDirectory extends DurableObject {
         FROM documents d LEFT JOIN members m ON m.document_id=d.id AND m.user_id=?
         WHERE d.owner=? OR m.user_id IS NOT NULL ORDER BY d.created DESC`, user.id, user.id, user.id).toArray();
       return reply({ documents: docs });
+    }
+    if (path === '/templates-list') {
+      const templates = this.sql.exec('SELECT id,name,classes,created FROM templates WHERE owner=? ORDER BY created DESC', user.id).toArray();
+      return reply({ templates: templates.map(t => ({ ...t, classes: JSON.parse(t.classes) })) });
+    }
+    if (path === '/templates-create') {
+      this.sql.exec('INSERT INTO templates(id,owner,name,classes,created) VALUES (?,?,?,?,?)', id, user.id, input.name, JSON.stringify(input.classes), Date.now());
+      return reply({ id }, 201);
+    }
+    if (path === '/templates-delete') {
+      const result = this.sql.exec('DELETE FROM templates WHERE id=? AND owner=?', id, user.id);
+      return result.rowsWritten ? reply({ ok: true }) : reply({ error: 'Template not found' }, 404);
     }
     if (path === '/create') {
       this.sql.exec('INSERT INTO documents(id,owner,name,created) VALUES (?,?,?,?)', id, user.id, input.name, Date.now());

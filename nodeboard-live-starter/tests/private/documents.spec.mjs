@@ -68,7 +68,8 @@ test('document library creates, opens, shares and restores edits', async ({ brow
       body: `window.createNodeboardAuth=()=>({auth:{getSession:async()=>({data:{session:{access_token:${JSON.stringify(token(user))}}}}),onAuthStateChange:()=>{},signOut:async()=>({error:null})}})`,
     }));
     await page.goto('/');
-    await expect(page.locator('#documentsBtn')).toBeVisible();
+    await expect(page.locator('#documentsBackdrop')).toHaveClass(/show/);
+    await page.locator('#closeDocuments').click();
     return { context, page, errors };
   }
   const alice = await signedIn('alice'), bob = await signedIn('bob');
@@ -124,4 +125,74 @@ test('document library creates, opens, shares and restores edits', async ({ brow
     await alice.context.close();
     await bob.context.close();
   }
+});
+
+test('saved class templates are private and create documents with relationships', async ({ browser, request }) => {
+  const classes = [
+    { id: 'service', key: 1, name: 'Service', shape: 'rounded', color: '#e05a72', relations: [{ to: 'offering', label: 'HAS_OFFERING', inverse: 'IS_OFFERING' }] },
+    { id: 'offering', key: 2, name: 'Offering', shape: 'pill', color: '#8c77cf' },
+  ];
+  expect((await request.get('/api/templates')).status()).toBe(401);
+  expect((await request.post('/api/templates', { headers: auth('alice'), data: { name: 'Bad', classes: [] } })).status()).toBe(400);
+  const created = await request.post('/api/templates', { headers: auth('alice'), data: { name: 'Services', classes } });
+  expect(created.status()).toBe(201);
+  const { id } = await created.json();
+  let documentId, savedId;
+  const context = await browser.newContext();
+  try {
+    expect((await (await request.get('/api/templates', { headers: auth('bob') })).json()).templates).toEqual([]);
+    expect((await request.delete(`/api/templates/${id}`, { headers: auth('bob') })).status()).toBe(404);
+    const page = await context.newPage();
+    await page.route('**/auth.js', route => route.fulfill({ contentType: 'text/javascript', body: `window.createNodeboardAuth=()=>({auth:{getSession:async()=>({data:{session:{access_token:${JSON.stringify(token('alice'))}}}}),onAuthStateChange:()=>{},signOut:async()=>({error:null})}})` }));
+    await page.goto('/');
+    await expect(page.locator('#profileIdentity')).toHaveText('alice@example.test');
+    await expect(page.locator('#documentsBackdrop')).toHaveClass(/show/);
+    await page.locator('#closeDocuments').click();
+    await page.locator('#profileBtn').click();
+    await page.locator('#profileTemplates').click();
+    await expect(page.locator('#templateList')).toContainText('Services');
+    await page.locator('#documentName').fill('From template');
+    await page.locator(`[data-use-template="${id}"]`).click();
+    await expect(page.locator('#liveStatus')).toContainText('Live · connected');
+    await expect(page.locator('#palette')).toContainText('Offering');
+    const docs = (await (await request.get(api, { headers: auth('alice') })).json()).documents;
+    documentId = docs.find(d => d.name === 'From template').id;
+    await page.locator('#editRelations').click();
+    await expect(page.locator('#relationList')).toContainText('HAS_OFFERING');
+    await expect(page.locator('#relationList')).toContainText('IS_OFFERING');
+    await page.locator('#closeRelations').click();
+    await page.locator('#documentsBtn').click();
+    await page.locator('#documentSearch').fill('not found');
+    await expect(page.locator('#documentList')).toContainText('No matching documents');
+    await page.locator('#documentSearch').fill('From template');
+    await expect(page.locator('#documentList')).toContainText('From template');
+    await page.locator('#templateName').fill('Saved from board');
+    await page.locator('#saveTemplate').click();
+    await expect(page.locator('#templateList')).toContainText('Saved from board');
+    const saved = (await (await request.get('/api/templates', { headers: auth('alice') })).json()).templates.find(t => t.name === 'Saved from board');
+    savedId = saved.id;
+    expect(saved.classes).toEqual(classes);
+  } finally {
+    if (documentId) await request.delete(`${api}/${documentId}`, { headers: auth('alice') });
+    if (savedId) await request.delete(`/api/templates/${savedId}`, { headers: auth('alice') });
+    await request.delete(`/api/templates/${id}`, { headers: auth('alice') });
+    await context.close();
+  }
+});
+
+test('profile menu and dark mode work at narrow widths and persist', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto('/');
+  const button = page.locator('#profileBtn');
+  const box = await button.boundingBox();
+  expect(box.x + box.width).toBeLessThanOrEqual(320);
+  await button.click();
+  await expect(page.locator('#profileAccount')).toHaveText('Sign in with Google');
+  await page.locator('#themeToggle').click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await button.click();
+  await page.locator('#profileAccount').click();
+  await expect(page.locator('#signInGoogle')).toBeVisible();
 });
