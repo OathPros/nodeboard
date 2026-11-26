@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 export { DocumentDirectory } from './directory.js';
+export { V2AccountBoards } from './v2-account-boards.js';
 
 const MAX_NODES = 3000;
 const MAX_EDGES = 6000;
@@ -56,6 +57,16 @@ function historyMatches(g,ops,expected){
 }
 function wsSend(ws,msg){try{ws.send(JSON.stringify(msg))}catch(_){}}
 
+async function boundedV2Body(request){
+ if(!request.body)return null;
+ const reader=request.body.getReader(),parts=[];let length=0;
+ for(;;){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;
+  if(length>5_100_000){await reader.cancel();return null}
+  parts.push(value);
+ }
+ const bytes=new Uint8Array(length);let offset=0;for(const part of parts){bytes.set(part,offset);offset+=part.byteLength}return bytes;
+}
+
 function directory(env){return env.DOCUMENT_DIRECTORY.get(env.DOCUMENT_DIRECTORY.idFromName('directory'))}
 async function directoryCall(env,path,data){return directory(env).fetch('https://directory.internal'+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)})}
 async function authenticatedUser(env,accessToken){
@@ -82,6 +93,41 @@ export default {
   const url=new URL(request.url),path=url.pathname;
   if(path==='/api/health')return json({ok:true,service:'nodeboard-live',version:1});
   if(path==='/api/account/config'&&request.method==='GET')return json({enabled:!!(env.SUPABASE_URL&&env.SUPABASE_PUBLISHABLE_KEY),url:env.SUPABASE_URL||null,key:env.SUPABASE_PUBLISHABLE_KEY||null});
+  if(path==='/api/v2/boards'||path.startsWith('/api/v2/boards/')||path.startsWith('/api/v2/shared/')){
+   try {
+    const user=await requestUser(request,env);if(!user)return json({error:'Sign in required',code:'UNAUTHORIZED'},401);
+    if(!/^[A-Za-z0-9_-]{1,120}$(?![\s\S])/.test(user.id))return json({error:'Invalid account identity',code:'UNAUTHORIZED'},401);
+    if(request.headers.get('X-Nodeboard-Protocol')!=='2'||request.headers.get('X-Nodeboard-Snapshot')!=='2')
+     return json({error:'Unsupported protocol or snapshot version',code:'VERSION_MISMATCH',protocolVersions:[2],snapshotVersions:[2]},426);
+    if(Number(request.headers.get('content-length')||0)>5_100_000)
+     return json({error:'The request exceeds the size limit.',code:'REQUEST_TOO_LARGE'},413);
+    const shared=/^\/api\/v2\/shared\/([A-Za-z0-9_-]{1,120})\/([A-Za-z0-9_-]{1,120})(\/operations)?$/.exec(path);
+    if(path.startsWith('/api/v2/shared/')&&!shared)return json({error:'Not found',code:'NOT_FOUND'},404);
+    const owner=shared?shared[1]:user.id;
+    const targetPath=shared?`/api/v2/boards/${shared[2]}${shared[3]||''}`:path;
+    const stub=env.V2_ACCOUNT_BOARDS.get(env.V2_ACCOUNT_BOARDS.idFromName(owner));
+    const headers={'content-type':request.headers.get('content-type')||'application/json','x-nodeboard-owner':owner,'x-nodeboard-user':user.id};
+    let body=null;
+    if(request.body){body=await boundedV2Body(request);if(body===null)return json({error:'The request exceeds the size limit.',code:'REQUEST_TOO_LARGE'},413)}
+    if(!shared&&request.method==='POST'&&/^\/api\/v2\/boards\/[A-Za-z0-9_-]{1,120}\/(share|unshare)$/.test(path)){
+     let input;try{input=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(body||new Uint8Array()))}catch{return json({error:'Invalid JSON request.',code:'INVALID_REQUEST'},400)}
+     if(path.endsWith('/share')){
+      const email=typeof input?.email==='string'?input.email.trim().toLowerCase():'';
+      if(!input||typeof input!=='object'||Array.isArray(input)||!email||email.length>254||Object.keys(input).some(k=>!['email','role'].includes(k)))
+       return json({error:'Enter a valid account email.',code:'INVALID_REQUEST'},400);
+      if(!['viewer','editor'].includes(input.role))return json({error:'Invalid access role.',code:'INVALID_REQUEST'},400);
+      const lookup=await directoryCall(env,'/resolve-user',{user,email});if(!lookup.ok)return lookup;
+      body=JSON.stringify({target:(await lookup.json()).user,role:input.role});
+     }else{
+      if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).some(k=>k!=='userId')||
+         typeof input.userId!=='string'||!/^[A-Za-z0-9_-]{1,120}$(?![\s\S])/.test(input.userId))
+       return json({error:'Invalid member identity.',code:'INVALID_REQUEST'},400);
+      body=JSON.stringify({target:{id:input.userId}});
+     }
+    }
+    return await stub.fetch(new Request(`https://v2.internal${targetPath}${url.search}`,{method:request.method,headers,body}));
+   }catch(e){console.error('V2 account request failed:',e.message);return json({error:'Account service unavailable',code:'SERVICE_UNAVAILABLE'},503)}
+  }
   if(path.startsWith('/api/documents')||path.startsWith('/api/templates')||path==='/api/account'){
    try {
     const wsMatch=/^\/api\/documents\/([A-Za-z0-9_-]{8,120})\/ws$/.exec(path);

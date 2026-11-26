@@ -1,0 +1,49 @@
+# Changelog
+
+## 2.0.0 — unreleased
+
+- Planned: semantic multigraph, ontology definitions and constraints, typed properties, provenance, independent views, editor/explorer/data/validation workspaces, migration, interoperability, and improved collaboration and performance.
+- The planned semantic features above are not yet implemented.
+- Setup: cloned v1 on `development/v2`, configured a distinct local Worker name with empty Supabase settings, and retained email-code authentication without the Google UI. No existing accounts or cloud documents are migrated.
+- Phase 0: recorded a source and data-path audit, architecture review proposal and synthetic browser/Worker baseline; schema freeze, migration and the architecture gate remain open.
+- Phase 0: added review-only structural snapshot/operation drafts and tests, plus synthetic SVG and isolated Cytoscape rendering experiments. Neither the v2 validator nor a renderer selection is implemented.
+- Phase 0: expanded the proposed validator and protocol contract and rehearsed synthetic v1 local backup/restore; ran the browser suite against explicitly isolated local Worker storage.
+- Phase 1: after architecture direction approval, started an isolated graph command and validation foundation with draft contracts and focused tests. The editor and server do not yet use it; v2 migration, persistence and workspaces remain outstanding.
+- Phase 1: added provisional enum/list validation, inherited entity property applicability warnings, abstract-class checks and read-only inverse/symmetric projections. These are domain prototypes, not completed app features.
+- Added a standalone, non-writing synthetic v1 migration preview with source retention, deterministic identifier mapping and ambiguity diagnostics. Application integration and restore remain outstanding.
+- Added an isolated IndexedDB prototype with atomic local transactions, stale-revision rejection, bounded undo/redo and backup-copy restoration; the existing editor does not use it.
+- Added inherited required-property draft diagnostics and a fail-closed publication profile; other constraint kinds remain incomplete.
+- Added independent provenance validity timestamps and temporal-range validation, with local undo/redo round-trip checks.
+- Added provisional directional cardinality checks for stored asserted relationships; publication remains blocked pending the complete policy.
+- Added provisional class-scoped property uniqueness diagnostics without merging duplicate entities.
+- Added provisional pairwise disjoint-class membership diagnostics, including inherited classes.
+- Bounded validator diagnostic collection with a blocking exhaustion error and short-circuiting schema alternative probes.
+- Fixed local backup restore for valid snapshots at the 5,000,000-byte snapshot limit.
+- Added provisional directed acyclicity diagnostics for explicitly asserted relationships of a configured predicate.
+- Added provisional inherited allowed-target checks for asserted outgoing relationships.
+- Added a non-writing local v1 migration preview and explicit atomic new-v2-board confirmation with source backup and hash.
+- Added provisional type-checked equality conditions for required entity properties.
+- Added paginated local board ID discovery and aligned v2 identifier checks with the schema's strict end-of-string rule.
+- Added atomic, bounded local operation retry tracking with safe rejection of conflicting retained IDs.
+- Added bounded, explicit glob-pattern constraints without executing arbitrary regular expressions.
+- Added a separate local v2 workspace with basic graph and ontology editing, local history, backup/restore and confirmed classic-board import. Its selectors and editable name fields wrap long values.
+- Added local class-name and predicate-display-name editing without changing predicate identity or stored assertions.
+- Added native v2 snapshot export and validated import as a new local board, with actionable import diagnostics.
+- Added local ontology JSON preview and revision-checked application, plus validated entity and relationship property editing.
+- Added local multiple-class assignment and explicit entity/relationship status and provenance editing.
+- Added an isolated owner-only account-board prototype with email-code sign-in, revision-checked server validation, bounded history and idempotent operation acknowledgements.
+- Added persistent, explicitly retried account copy/edit/history requests for ambiguous network failures.
+- Added link-based account-board viewer/editor grants, stable-identity revocation and personal-view protection; shared boards do not yet synchronize live.
+- Made the classic live integration tests opt in to an explicit disposable loopback Worker to avoid accidentally using a pre-existing server.
+- Added read-only entity connection navigation that labels derived inverse/symmetric links and retains their source assertion and status.
+- Added explicit relationship endpoint and predicate editing, retaining the assertion ID, status, properties, provenance and any legacy details.
+- Added read-only entity search and navigation by name, ID, class, property and external ID.
+- Added guided parent-class and abstract-class editing with validation and undo.
+- Added guided predicate domain/range, inverse, symmetric and transitive declarations without rewriting stored assertions.
+- Added guided typed property-definition creation, enum/list choices and class assignment.
+- Added individual validated entity and relationship property editing without replacing unrelated values.
+- Added guided required-property constraints and constraint removal with draft diagnostics.
+- Linked entity and relationship validation findings to their affected records.
+- Added atomic creation of an entity and its outgoing connection from the selected entity's inspector.
+- Added explicit export and confirmed discard of ambiguous pending account edits, with a fresh board read and operation-identity check.
+- Added saved graph entity-membership views and non-destructive view selection, editing and history.

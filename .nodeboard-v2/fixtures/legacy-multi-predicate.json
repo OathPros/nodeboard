@@ -1,0 +1,70 @@
+{
+  "classes": [
+    {
+      "id": "cls-offering",
+      "key": 1,
+      "name": "Offering",
+      "shape": "pill",
+      "color": "#8c77cf",
+      "relations": [
+        {
+          "to": "cls-team",
+          "label": "SUPPORTED_BY",
+          "inverse": ""
+        },
+        {
+          "to": "cls-team",
+          "label": "MANAGED_BY",
+          "inverse": ""
+        }
+      ]
+    },
+    {
+      "id": "cls-team",
+      "key": 2,
+      "name": "Team",
+      "shape": "rectangle",
+      "color": "#38a99c"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "demo-offering",
+      "x": 0,
+      "y": 0,
+      "name": "Example offering",
+      "classId": "cls-offering",
+      "properties": {
+        "extension": "00123",
+        "status": "proposed"
+      }
+    },
+    {
+      "id": "demo-team",
+      "x": 300,
+      "y": 0,
+      "name": "Example team",
+      "classId": "cls-team"
+    }
+  ],
+  "edges": [
+    {
+      "id": "demo-edge-support",
+      "from": "demo-offering",
+      "to": "demo-team",
+      "label": "SUPPORTED_BY"
+    },
+    {
+      "id": "demo-edge-manage",
+      "from": "demo-offering",
+      "to": "demo-team",
+      "label": "MANAGED_BY",
+      "properties": {
+        "validFrom": "2026-01-01",
+        "confidence": 0.8
+      }
+    }
+  ],
+  "format": "nodeboard",
+  "version": 1
+}

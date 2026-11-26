@@ -15,7 +15,7 @@ export default defineConfig({
   webServer: {
     command: 'npx wrangler dev --port 8787',
     url: 'http://127.0.0.1:8787/api/health',
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 90_000,
   },
 });

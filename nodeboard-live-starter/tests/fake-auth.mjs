@@ -16,5 +16,5 @@ createServer((req, res) => {
   const actual = Buffer.from(parts[2] || ''), signature = Buffer.from(expected);
   const user = parts[0] === 'fixture' && actual.length === signature.length && timingSafeEqual(actual, signature) && payload?.exp > Date.now() / 1000 && users[payload.sub];
   res.writeHead(user ? 200 : 401, { 'content-type': 'application/json' });
-  res.end(JSON.stringify(user || { error: 'invalid token' }));
-}).listen(8899, '127.0.0.1');
+  res.end(JSON.stringify(user ? { ...user, ...(typeof payload.email === 'string' ? { email: payload.email } : {}) } : { error: 'invalid token' }));
+}).listen(Number(process.env.NODEBOARD_FAKE_AUTH_PORT || 8899), '127.0.0.1');

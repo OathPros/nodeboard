@@ -18,6 +18,15 @@ test.afterEach(async ({ page }) => {
   expect(page.errors, 'no uncaught page errors').toEqual([]);
 });
 
+test('accounts are disabled until v2 authentication is configured', async ({ page, request }) => {
+  const config = await (await request.get('/api/account/config')).json();
+  expect(config).toEqual({ enabled: false, url: null, key: null });
+  await page.locator('#profileBtn').click();
+  await page.locator('#profileAccount').click();
+  await expect(page.locator('#sendEmailCode')).toBeDisabled();
+  await expect(page.locator('#documentsError')).toContainText('Accounts are not configured');
+});
+
 test('sample graph renders and persists locally', async ({ page }) => {
   await expect(page.locator('#scene .node')).toHaveCount(5);
   await expect(page.locator('#scene .edge')).toHaveCount(4);

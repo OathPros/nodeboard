@@ -35,7 +35,9 @@ test('private documents enforce ownership, sharing and live revocation', async (
       ws.onerror = () => resolve({ type: 'connection-error' });
     }), { url, bearer });
     await page.goto('/');
-    const base = `ws://127.0.0.1:8790/api`;
+    const baseUrl = new URL('/api', test.info().project.use.baseURL);
+    baseUrl.protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    const base = baseUrl.toString().replace(/\/$/, '');
     expect((await connect(`${base}/sessions/${id}/ws`, token('bob'))).type).toBe('connection-error');
     expect((await connect(`${base}/documents/${id}/ws`, token('eve'))).type).toBe('error');
     const welcome = await connect(`${base}/documents/${id}/ws`, token('bob'));
@@ -201,7 +203,8 @@ test('profile menu and dark mode work at narrow widths and persist', async ({ pa
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await button.click();
   await page.locator('#profileAccount').click();
-  await expect(page.locator('#signInGoogle')).toBeVisible();
+  await expect(page.locator('#signInEmail')).toBeVisible();
+  await expect(page.locator('#signInEmail')).toBeFocused();
 });
 
 test('email sign-in sends and verifies a one-time code', async ({ page }) => {
@@ -220,6 +223,7 @@ test('email sign-in sends and verifies a one-time code', async ({ page }) => {
   await page.goto('/');
   await page.locator('#profileBtn').click();
   await page.locator('#profileAccount').click();
+  await expect(page.getByRole('button', { name: /google/i })).toHaveCount(0);
   await expect(page.locator('#sendEmailCode')).toBeEnabled();
   await page.locator('#signInEmail').fill('error@example.test');
   await page.locator('#sendEmailCode').click();

@@ -1,16 +1,16 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "nodeboard-live",
+  "name": "nodeboard-v2",
   "main": "src/index.js",
   "compatibility_date": "2026-10-28",
   "vars": {
-    "SUPABASE_URL": "https://mmianijqsfcpuucxgaji.supabase.co",
-    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_scPnanNU2p-Y2QzEy-b5Qw_M--LyovU"
+    "SUPABASE_URL": "",
+    "SUPABASE_PUBLISHABLE_KEY": ""
   },
   "durable_objects": {
-    "bindings": [{"name": "BOARD_SESSIONS", "class_name": "BoardSession"}, {"name": "DOCUMENT_DIRECTORY", "class_name": "DocumentDirectory"}]
+    "bindings": [{"name": "BOARD_SESSIONS", "class_name": "BoardSession"}, {"name": "DOCUMENT_DIRECTORY", "class_name": "DocumentDirectory"}, {"name": "V2_ACCOUNT_BOARDS", "class_name": "V2AccountBoards"}]
   },
-  "migrations": [{"tag": "v1", "new_sqlite_classes": ["BoardSession"]}, {"tag": "v2", "new_sqlite_classes": ["DocumentDirectory"]}],
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["BoardSession"]}, {"tag": "v2", "new_sqlite_classes": ["DocumentDirectory"]}, {"tag": "v3", "new_sqlite_classes": ["V2AccountBoards"]}],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

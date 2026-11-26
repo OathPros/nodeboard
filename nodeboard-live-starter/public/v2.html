@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nodeboard 2</title>
+  <link rel="stylesheet" href="v2.css">
+  <script defer src="auth.js"></script>
+  <script defer src="v2.js"></script>
+</head>
+<body aria-busy="false">
+  <header class="topbar">
+    <h1>Nodeboard 2</h1>
+    <nav aria-label="Board actions">
+      <button id="home-button" type="button">Boards</button>
+      <button id="undo-button" type="button" disabled>Undo</button>
+      <button id="redo-button" type="button" disabled>Redo</button>
+      <button id="backup-button" type="button" disabled>Download backup</button>
+      <button id="export-native" type="button" disabled>Export native board</button>
+      <a href="index.html">Classic editor</a>
+    </nav>
+  </header>
+  <p id="status" role="status" aria-live="polite"></p>
+  <main>
+    <section id="home" aria-labelledby="home-title">
+      <h2 id="home-title">Boards</h2>
+      <div class="home-actions">
+        <form id="create-board-form">
+          <label for="board-name">Board name</label>
+          <div class="field-row"><textarea id="board-name" rows="1" required></textarea><button>Create board</button></div>
+        </form>
+        <div>
+          <button id="preview-migration" type="button">Preview classic board import</button>
+          <button id="confirm-migration" type="button" hidden>Import as new board</button>
+          <div id="migration-report"></div>
+        </div>
+        <div>
+          <label for="restore-file">Restore backup as new board</label>
+          <input id="restore-file" type="file" accept=".json,application/json">
+        </div>
+        <div>
+          <label for="import-native">Import native board as new board</label>
+          <input id="import-native" type="file" accept=".json,application/json">
+        </div>
+      </div>
+      <ul id="boards" class="board-list"></ul>
+      <button id="more-boards" type="button" hidden>More boards</button>
+      <section id="account-area" hidden aria-labelledby="account-title">
+        <h3 id="account-title">Account</h3>
+        <div id="account-sign-in">
+          <form id="account-email-form">
+            <label for="account-email">Email address</label>
+            <div class="field-row"><textarea id="account-email" rows="1" required></textarea><button>Send sign-in code</button></div>
+          </form>
+          <form id="account-code-form" hidden>
+            <label for="account-code">One-time code</label>
+            <div class="field-row"><input id="account-code" inputmode="numeric" autocomplete="one-time-code" required><button>Verify code</button></div>
+          </form>
+        </div>
+        <div id="account-signed-in" hidden>
+          <p id="account-identity"></p>
+          <button id="account-sign-out" type="button">Sign out</button>
+          <h3>Account boards</h3>
+          <ul id="cloud-boards" class="board-list"></ul>
+          <button id="more-cloud-boards" type="button" hidden>More account boards</button>
+        </div>
+      </section>
+    </section>
+    <section id="editor" hidden aria-labelledby="board-title">
+      <div class="workspace-heading">
+        <h2 id="board-title"></h2>
+        <span id="board-revision"></span>
+        <button id="reload-board" type="button">Reload board</button>
+        <button id="copy-to-account" type="button" hidden>Copy board to account</button>
+        <button id="retry-cloud-copy" type="button" hidden>Retry pending account copy</button>
+        <button id="copy-to-local" type="button" hidden>Copy displayed board to local</button>
+        <button id="retry-cloud-change" type="button" hidden>Retry pending account change</button>
+        <button id="export-cloud-change" type="button" hidden>Export pending account change</button>
+        <button id="discard-cloud-change" type="button" hidden>Discard pending account retry</button>
+        <button id="open-sharing" type="button" hidden>Manage sharing</button>
+      </div>
+      <section id="sharing-panel" hidden aria-labelledby="sharing-title">
+        <h3 id="sharing-title">Sharing</h3>
+        <label for="sharing-link">Board link</label>
+        <textarea id="sharing-link" rows="1" readonly></textarea>
+        <form id="sharing-form">
+          <label for="sharing-email">Account email</label>
+          <textarea id="sharing-email" rows="1" required></textarea>
+          <fieldset>
+            <legend>Access</legend>
+            <label><input type="radio" name="sharing-role" value="viewer" checked> Viewer</label>
+            <label><input type="radio" name="sharing-role" value="editor"> Editor</label>
+          </fieldset>
+          <button>Grant access</button>
+        </form>
+        <ul id="sharing-members"></ul>
+        <button id="close-sharing" type="button">Close sharing</button>
+      </section>
+      <div class="workspace">
+        <aside class="panel" aria-label="Ontology">
+          <h3>Classes</h3>
+          <form id="add-class-form">
+            <label for="class-name">Class name</label>
+            <div class="field-row"><textarea id="class-name" rows="1" required></textarea><button>Add class</button></div>
+          </form>
+          <ul id="classes"></ul>
+          <h3>Predicates</h3>
+          <form id="add-predicate-form">
+            <label for="predicate-name">Predicate name</label>
+            <div class="field-row"><textarea id="predicate-name" rows="1" required></textarea><button>Add predicate</button></div>
+          </form>
+          <ul id="predicates"></ul>
+          <h3>Properties</h3>
+          <form id="add-property-form">
+            <label for="property-name">Property name</label>
+            <textarea id="property-name" rows="1" required></textarea>
+            <span>Data type</span>
+            <details id="property-type" data-label="Data type"></details>
+            <div id="property-list-options" hidden>
+              <span>List item type</span>
+              <details id="property-item-type" data-label="List item type"></details>
+            </div>
+            <div id="property-enum-options" hidden>
+              <span>Choices</span>
+              <div id="property-enum-values"></div>
+              <button id="add-enum-value" type="button">Add choice</button>
+            </div>
+            <button type="submit">Add property</button>
+          </form>
+          <ul id="properties"></ul>
+          <h3>Constraints</h3>
+          <form id="add-required-form">
+            <span>Class</span>
+            <details id="required-class" data-label="Required property class"></details>
+            <span>Property</span>
+            <details id="required-property" data-label="Required property"></details>
+            <button type="submit">Require property</button>
+          </form>
+          <ul id="constraints"></ul>
+          <details id="ontology-editor">
+            <summary>Advanced ontology editor</summary>
+            <label for="ontology-json">Ontology JSON</label>
+            <textarea id="ontology-json" rows="12" spellcheck="false"></textarea>
+            <div class="field-row">
+              <button id="ontology-load" type="button">Load current ontology</button>
+              <button id="ontology-preview" type="button">Preview ontology changes</button>
+              <button id="ontology-apply" type="button" disabled>Apply ontology changes</button>
+            </div>
+            <div id="ontology-report" aria-live="polite"></div>
+          </details>
+        </aside>
+        <section class="canvas-panel" aria-labelledby="graph-title">
+          <h3 id="graph-title">Graph</h3>
+          <div>
+            <span>Graph view</span>
+            <details id="view-choice" data-label="Graph view"></details>
+          </div>
+          <form id="create-view-form">
+            <label for="view-name">New view name</label>
+            <textarea id="view-name" rows="1" required></textarea>
+            <button type="submit">Save current view</button>
+          </form>
+          <div id="view-management"></div>
+          <div>
+            <label for="entity-search">Find entities</label>
+            <textarea id="entity-search" rows="1" autocomplete="off"></textarea>
+            <p id="entity-search-count" aria-live="polite"></p>
+            <ul id="entity-search-results"></ul>
+          </div>
+          <form id="add-entity-form" class="inline-form">
+            <label for="entity-name">Entity name</label>
+            <textarea id="entity-name" rows="1" required></textarea>
+            <span>Class</span>
+            <details id="entity-class" data-label="Class"></details>
+            <button type="submit">Add entity</button>
+          </form>
+          <div id="graph" class="graph" aria-label="Graph entities">
+            <svg id="graph-lines" aria-hidden="true"></svg>
+            <div id="graph-nodes" class="graph-nodes"></div>
+          </div>
+          <h3>Relationships</h3>
+          <form id="add-relationship-form" class="inline-form">
+            <span>From</span><details id="relationship-from" data-label="From"></details>
+            <span>Predicate</span><details id="relationship-type" data-label="Predicate"></details>
+            <span>To</span><details id="relationship-to" data-label="To"></details>
+            <button type="submit">Add relationship</button>
+          </form>
+          <ul id="relationships"></ul>
+        </section>
+        <aside class="panel" aria-label="Inspector">
+          <h3>Inspector</h3>
+          <div id="inspector"></div>
+          <h3>Validation</h3>
+          <ul id="diagnostics"></ul>
+        </aside>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

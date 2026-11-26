@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nodeboard:draft:operations:2",
+  "title": "Nodeboard v2 atomic operation batch, proposed structural contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocolVersion", "snapshotVersion", "operationId", "baseRevision", "operations"],
+  "properties": {
+    "protocolVersion": { "const": 2 },
+    "snapshotVersion": { "const": 2 },
+    "operationId": { "$ref": "urn:nodeboard:draft:snapshot:2#/$defs/id" },
+    "baseRevision": { "type": "integer", "minimum": 0, "maximum": 9007199254740990 },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "oneOf": [
+          { "$ref": "#/$defs/entityPut" },
+          { "$ref": "#/$defs/relationshipPut" },
+          { "$ref": "#/$defs/viewPut" },
+          { "$ref": "#/$defs/ontologyReplace" },
+          { "$ref": "#/$defs/delete" }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "entityPut": {
+      "type": "object", "additionalProperties": false, "required": ["type", "entity"],
+      "properties": { "type": { "const": "entity.put" }, "entity": { "$ref": "urn:nodeboard:draft:snapshot:2#/$defs/entity" } }
+    },
+    "relationshipPut": {
+      "type": "object", "additionalProperties": false, "required": ["type", "relationship"],
+      "properties": { "type": { "const": "relationship.put" }, "relationship": { "$ref": "urn:nodeboard:draft:snapshot:2#/$defs/relationship" } }
+    },
+    "viewPut": {
+      "type": "object", "additionalProperties": false, "required": ["type", "view"],
+      "properties": { "type": { "const": "view.put" }, "view": { "$ref": "urn:nodeboard:draft:snapshot:2#/$defs/view" } }
+    },
+    "ontologyReplace": {
+      "type": "object", "additionalProperties": false, "required": ["type", "ontology"],
+      "properties": { "type": { "const": "ontology.replace" }, "ontology": { "$ref": "urn:nodeboard:draft:snapshot:2#/$defs/ontology" } }
+    },
+    "delete": {
+      "type": "object", "additionalProperties": false, "required": ["type", "id"],
+      "properties": {
+        "type": { "enum": ["entity.delete", "relationship.delete", "view.delete"] },
+        "id": { "$ref": "urn:nodeboard:draft:snapshot:2#/$defs/id" }
+      }
+    }
+  }
+}

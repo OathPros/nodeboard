@@ -1,10 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-// Integration tests run against a live `wrangler dev` instance on 127.0.0.1:8787.
-// They self-skip when no dev server is reachable so `npm test` stays usable offline.
-const BASE = 'http://127.0.0.1:8787';
-const WS_BASE = 'ws://127.0.0.1:8787';
+// Opt in only with a disposable local Worker; these tests create persistent sessions.
+const configuredBase = process.env.NODEBOARD_INTEGRATION_URL;
+let BASE = null;
+let WS_BASE = null;
+if (configuredBase) {
+  const url = new URL(configuredBase);
+  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || url.username || url.password ||
+      url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('NODEBOARD_INTEGRATION_URL must be an HTTP loopback origin for a disposable Worker.');
+  }
+  BASE = url.origin;
+  WS_BASE = `ws://${url.host}`;
+}
 
 async function serverUp() {
   try { const r = await fetch(BASE + '/api/health', { signal: AbortSignal.timeout(1500) }); return r.ok; }
@@ -58,7 +67,8 @@ const waitFor = (client, pred, ms = 8000) => new Promise((resolve, reject) => {
 });
 
 test('integration: collaboration protocol', async (t) => {
-  if (!await serverUp()) { t.skip('wrangler dev not running on 127.0.0.1:8787'); return; }
+  if (!BASE) { t.skip('Set NODEBOARD_INTEGRATION_URL to a disposable local Worker to run integration tests.'); return; }
+  if (!await serverUp()) throw new Error('The configured disposable integration Worker is unavailable.');
 
   await t.test('health endpoint responds', async () => {
     const r = await fetch(BASE + '/api/health');

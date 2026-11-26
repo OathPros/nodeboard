@@ -1,0 +1,3 @@
+# Resume Nodeboard v2
+
+Read AGENTS.md and project specifications, STATUS.md, DECISIONS.md and BACKLOG.md. Inspect git status, current branch, recent commits, implementation and tests. Verify the documented state; do not restart or overwrite completed work. Identify the highest-priority incomplete task with satisfied dependencies and approved gates. Implement a coherent vertical slice; run the relevant automated and real-browser tests; resolve regressions. Update docs, backlog, decisions and handoff; commit reviewable changes when permitted. Continue subsequent ready tasks within capacity. Report exact test evidence, limitations and next task. Do not modify production, leak private fixtures, or assume approvals.

@@ -1,0 +1,3 @@
+# Release candidate qualification
+
+Audit the v2 branch against every release requirement. Run full regression, unit, migration, integration, multi-client, accessibility, security and benchmark suites. Confirm real browser flows including v1 import, complex multigraph, typed properties, independent views, merge, graph query and collaboration. Verify private fixture handling, preview isolation, deployment configuration, backups, restore rehearsal and compatibility strategy. Record commit, environment, commands, results, skipped tests, performance, known limitations and rollback steps in a release report. Check all documentation and acceptance criteria. Present release candidate for explicit approval; never merge or deploy production merely because tests pass.

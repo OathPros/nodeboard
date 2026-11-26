@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nodeboard:draft:diagnostics:2",
+  "title": "Nodeboard v2 validation diagnostic, proposed contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "severity", "path", "message"],
+  "properties": {
+    "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$(?![\\s\\S])", "maxLength": 80 },
+    "severity": { "enum": ["error", "warning", "info"] },
+    "path": { "type": "string", "pattern": "^(?:/(?:[^~/]|~[01])*)*$" },
+    "entityId": { "$ref": "urn:nodeboard:draft:snapshot:2#/$defs/id" },
+    "message": { "type": "string", "minLength": 1 },
+    "suggestion": { "type": "string", "minLength": 1 }
+  }
+}

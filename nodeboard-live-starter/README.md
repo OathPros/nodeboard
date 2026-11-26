@@ -16,6 +16,57 @@ Create live session**, copy the **Editor link** into window B. Use the
 **View-only invitation** for guests who should not edit. Opening `public/index.html`
 directly from disk works as a fully-featured local editor (no server).
 
+For the in-progress v2 local workspace, run `npm run build` and open
+`public/v2.html` in the same browser origin as the classic editor. Create a
+board, add classes and predicates, then add entities and relationships. Boards
+are saved in this browser's separate IndexedDB database. Use **Download backup**
+and **Restore backup as new board** for a portable copy. **Preview classic
+board import** reads the classic local board on the same origin; confirming
+creates a separate v2 board without replacing the classic source. When account services are
+configured, sign in with an emailed one-time code and use **Copy board to
+account** to create a separate private account copy. Owners can grant a
+registered account viewer or editor access by email and send it the board link.
+Shared boards cannot contain personal views. Edits use revision checks;
+account history is owner-only and bounded. Shared boards do not yet provide
+live synchronization or an offline change queue.
+If an account copy, edit or history request has an uncertain network outcome,
+reopen that board and use its retry button. The browser retains the original
+request so retrying does not duplicate a committed change. If another device
+has edited the board, reload and reconcile the rejected change.
+Expand a class or predicate in the ontology panel to change its displayed name;
+renaming a predicate does not change its identity or existing relationships.
+Use **Class hierarchy** to assign parent classes or mark a class abstract;
+invalid cycles and direct instances of an abstract class are rejected.
+Create typed property definitions in **Properties** and assign them to classes
+in **Class hierarchy**. Enum and enum-list definitions accept explicit choices.
+Under **Constraints**, require a property for a class and its subclasses; the
+validation panel reports missing values in the draft. Findings associated with
+entities or relationships include a control to open the affected record.
+**Predicate definition** edits source and target classes, inverse, symmetric
+and transitive declarations without rewriting stored relationships. Transitive
+inference is not yet implemented.
+Select an entity to inspect its connections and open a connected entity.
+Inverse and symmetric connections are labelled as derived and identify their
+source assertion; they are not saved as separate relationships.
+**Find entities** searches names, IDs, classes, properties and external IDs;
+select a result to focus it without modifying the board.
+Use **Edit relationship** to change its endpoints or predicate explicitly.
+An unresolved legacy relationship stays unresolved unless a predicate is
+chosen, and its original legacy details remain attached.
+**Export native board** downloads the v2 snapshot; **Import native board as new
+board** validates it and creates a separate local copy. This does not merge
+boards. Raw import files are limited to 10 MB and snapshots to 5 MB.
+The **Advanced ontology editor** accepts the ontology JSON, previews changed
+definitions and validator findings, and applies a valid preview atomically.
+Reload the current ontology before applying a draft based on an older board
+revision. Entity and relationship property panels accept JSON objects keyed by
+property-definition ID and validate the values against those definitions.
+Entity and relationship property panels also allow individual values to be
+added, edited or removed. List and structured values use JSON.
+Use **Entity classes** to change class membership without discarding properties.
+Status and provenance panels edit the explicit status and provenance array;
+confidence does not automatically mark a record verified.
+
 ## Editing
 
 - Open **Canvas appearance** from the profile menu or the blank canvas menu to
@@ -85,18 +136,23 @@ directly from disk works as a fully-featured local editor (no server).
 ## Tests
 
 ```bash
-npm test          # unit (protocol) + integration tests; integration self-skips if no dev server
+npm test          # unit tests; live integration requires explicit opt-in
 npm run test:e2e  # Playwright: local editing regression + 2-editor/1-viewer multiplayer
 npm run test:private # private documents with a local fake authentication server
 npm run test:all  # typecheck + unit/integration + both E2E suites
 ```
 
-`npm run test:e2e` auto-starts `wrangler dev` (or reuses one already on port 8787).
+The live integration suite creates persistent test sessions. Run it only against
+a disposable local Worker by setting `NODEBOARD_INTEGRATION_URL` to its HTTP
+loopback origin. Without that variable the suite skips; if the configured
+server is unavailable it fails. The standard Playwright configuration uses
+port 8787; do not reuse or stop another user's service. See the repository's
+`TESTING.md` for isolated browser configurations and disposable state.
 
 ## Private accounts and documents
 
-Accounts are optional. Private document access uses Supabase Auth with Google
-or a one-time email code; Cloudflare stores the documents and their access lists. A person must
+Accounts are optional. Private document access uses Supabase Auth with a
+one-time email code; Cloudflare stores the documents and their access lists. A person must
 sign in once before an owner can share with their verified account email.
 Owners can grant viewer or editor access, change that access, and remove it.
 Revocation closes existing connections. A viewer can see and export the board.
@@ -114,19 +170,15 @@ remembered in the current browser.
 
 To configure accounts:
 
-1. Create a Supabase project on the free plan. In Authentication, set the site
-   URL and redirect allowlist to the deployed app URL.
-2. Set up a Google OAuth **web application**, with the app origin as an authorized
-   JavaScript origin and the Supabase Google provider's callback URL as its
-   authorized redirect URI. Configure the consent screen for external users;
-   testing mode only permits configured test users. Configure the Google client
-   ID and secret in Supabase's Google provider settings. Never commit the secret.
-3. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `wrangler.jsonc`
-   using the Supabase project URL and publishable (or legacy anon) key. These
-   values are public, not the service-role key. For local development without
-   configured accounts, override these variables with empty values.
-4. Run `npm run build`, then deploy. The `v2` Durable Object migration creates
-   the document directory; do not remove or rename its binding.
+1. Create a **separate** Supabase project for v2. In Authentication, enable
+   email sign-ups and confirmation, and set the site URL and redirect allowlist
+   to the v2 app URL. Google OAuth is not needed.
+2. Configure `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `wrangler.jsonc`
+   with the new project's URL and publishable (or legacy anon) key. These
+   values are public, not the service-role key. They are blank by default;
+   local editing remains available without accounts.
+3. Configure email delivery and templates as described below. Deploy only
+   after confirming the isolated Cloudflare and Supabase settings.
 
 For email codes, enable the Supabase Email provider and configure
 [custom SMTP](https://supabase.com/docs/guides/auth/auth-smtp). The default
@@ -145,6 +197,16 @@ Object, suitable for a small deployment but a scaling bottleneck. Exports are
 the user's backups; deleting a document is permanent.
 
 ## Deploy
+
+The v2 configuration names the Worker `nodeboard-v2`, distinct from the
+original `nodeboard-live`, and starts with no Supabase project configured.
+Before deploying, verify that `nodeboard-v2` is not already in use in the
+chosen Cloudflare account; choose a different Worker name if it is. Use a
+separate workers.dev hostname or domain and a new Supabase project, never the
+v1 project. Worker-scoped Durable Objects are created by the migrations in
+this configuration; do not point v2 at v1 storage. This setup does not migrate
+v1 accounts or documents. Export v1 boards and import them explicitly if needed.
+Do not deploy or provision resources until approved.
 
 ```bash
 npx wrangler login

@@ -35,6 +35,10 @@ export class DocumentDirectory extends DurableObject {
       }
       return reply({ ok: true });
     }
+    if (path === '/resolve-user') {
+      const target = this.sql.exec('SELECT id,email FROM profiles WHERE email=?', input.email).toArray()[0];
+      return target ? reply({ user: target }) : reply({ error: 'That user must sign in to Nodeboard first.' }, 404);
+    }
     if (path === '/list') {
       const docs = this.sql.exec(`SELECT d.id,d.name,d.created,CASE WHEN d.owner=? THEN 'owner' ELSE m.role END AS role
         FROM documents d LEFT JOIN members m ON m.document_id=d.id AND m.user_id=?

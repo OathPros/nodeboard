@@ -1,0 +1,93 @@
+:root {
+  color-scheme: light dark;
+  font: 15px system-ui, sans-serif;
+  background: #f0f3f8;
+  color: #17243b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, textarea { font: inherit; }
+button, input, textarea, a { border-radius: 6px; }
+button, input, textarea { padding: .5rem .65rem; border: 1px solid #9aacc3; }
+button { cursor: pointer; background: #e2eaf5; color: #17243b; }
+button:disabled { cursor: default; opacity: .5; }
+input, textarea { background: white; color: #17243b; min-width: 0; }
+textarea { resize: vertical; overflow-wrap: anywhere; }
+label { display: block; font-weight: 600; overflow-wrap: anywhere; }
+a { color: #174e97; }
+:focus-visible { outline: 3px solid #236ac5; outline-offset: 2px; }
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: 1.15rem; }
+h2 { font-size: 1.3rem; }
+h3 { font-size: 1rem; }
+ul { margin: 0; padding-left: 1.2rem; }
+li { margin-block: .4rem; overflow-wrap: anywhere; }
+li summary { cursor: pointer; overflow-wrap: anywhere; }
+li form { margin-top: .5rem; }
+li textarea { width: 100%; }
+#ontology-editor summary { cursor: pointer; }
+#ontology-editor > * + * { margin-top: .5rem; }
+#ontology-json { width: 100%; }
+#add-property-form textarea { width: 100%; }
+#entity-search { width: 100%; }
+#entity-search-results button { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+#ontology-report { overflow-wrap: anywhere; }
+#sharing-panel { display: grid; gap: .6rem; padding: 1rem; margin-bottom: .8rem; background: white; border-radius: 10px; }
+#sharing-panel textarea { width: 100%; }
+.topbar, nav, .workspace-heading, .field-row, .inline-form {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+}
+.topbar { justify-content: space-between; padding: .9rem 1rem; background: #dce5f2; }
+nav a { padding: .5rem; }
+#status { padding: .5rem 1rem; min-height: 2rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+main { padding: 0 1rem 1rem; }
+#home, .panel, .canvas-panel { display: grid; align-content: start; gap: .8rem; }
+#account-area, #account-sign-in, #account-signed-in { display: grid; gap: .8rem; }
+.home-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.home-actions > *, .panel, .canvas-panel { background: #fff; padding: 1rem; border-radius: 10px; }
+form { display: grid; gap: .35rem; }
+fieldset { min-width: 0; border: 0; margin: 0; padding: 0; }
+.field-row textarea { flex: 1; }
+.board-list { list-style: none; padding: 0; }
+.board-list button { width: 100%; text-align: left; overflow-wrap: anywhere; }
+.workspace-heading { margin-bottom: .8rem; }
+.workspace { display: grid; grid-template-columns: minmax(14rem, 1fr) minmax(20rem, 3fr) minmax(14rem, 1fr); gap: .8rem; align-items: start; }
+.panel, .canvas-panel { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.inline-form { align-items: end; }
+.inline-form label { align-self: center; }
+.inline-form textarea { flex: 1 1 10rem; }
+.choice { flex: 1 1 10rem; min-width: 0; background: white; border: 1px solid #9aacc3; border-radius: 6px; }
+.choice summary { padding: .5rem .65rem; cursor: pointer; overflow-wrap: anywhere; }
+.choice-options { display: grid; gap: .3rem; padding: .4rem; }
+.choice-options button { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.graph { position: relative; min-height: 16rem; padding: 2rem; background: #edf2f9; border-radius: 8px; overflow: auto; }
+.graph-nodes { position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 3rem; min-width: 0; }
+.graph-node { position: relative; z-index: 1; min-width: 0; min-height: 4rem; white-space: normal; overflow-wrap: anywhere; text-align: left; background: white; }
+.graph-node[aria-pressed="true"] { outline: 3px solid #236ac5; }
+.graph-node span { display: block; }
+.graph-node small { display: block; color: #455e7b; }
+#graph-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+#relationships button { margin-left: .5rem; }
+#inspector { display: grid; gap: .6rem; overflow-wrap: anywhere; }
+#inspector pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+#inspector form, #inspector textarea { min-width: 0; width: 100%; }
+#diagnostics { overflow-wrap: anywhere; }
+[hidden] { display: none !important; }
+@media (max-width: 850px) {
+  .workspace { grid-template-columns: 1fr; }
+}
+@media (prefers-color-scheme: dark) {
+  :root { background: #121b2a; color: #e4ecf7; }
+  .topbar { background: #26364f; }
+  .home-actions > *, .panel, .canvas-panel { background: #1d2b40; }
+  #sharing-panel { background: #1d2b40; }
+  .graph { background: #142033; }
+  button { background: #314762; color: #f1f5fb; border-color: #7088a6; }
+  input, textarea, .choice { background: #162235; color: #f1f5fb; border-color: #7088a6; }
+  .graph-node { background: #263b55; }
+  .graph-node small { color: #cad7e8; }
+  a { color: #a7cbff; }
+}

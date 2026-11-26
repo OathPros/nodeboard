@@ -1,0 +1,36 @@
+{
+  "format": "nodeboard",
+  "version": 2,
+  "ontology": {
+    "id": "ont-example",
+    "version": "1.0.0",
+    "classes": [
+      { "id": "class-item", "name": "Item", "superclassIds": [], "abstract": false, "propertyDefinitionIds": ["prop-extension"] }
+    ],
+    "relationshipTypes": [
+      { "id": "rel-support", "predicate": "SUPPORTS", "label": "Supports", "domainClassIds": ["class-item"], "rangeClassIds": ["class-item"], "inversePredicateId": null, "symmetric": false, "transitive": false },
+      { "id": "rel-manage", "predicate": "MANAGES", "label": "Manages", "domainClassIds": ["class-item"], "rangeClassIds": ["class-item"], "inversePredicateId": null, "symmetric": false, "transitive": false }
+    ],
+    "propertyDefinitions": [
+      { "id": "prop-extension", "name": "Extension", "dataType": "string" }
+    ],
+    "constraints": []
+  },
+  "graph": {
+    "entities": [
+      { "id": "item-a", "classIds": ["class-item"], "name": "Example A", "properties": { "prop-extension": "00123" }, "externalIds": [], "provenance": [], "status": "active" },
+      { "id": "item-b", "classIds": ["class-item"], "name": "Example B", "properties": {}, "externalIds": [], "provenance": [], "status": "active" }
+    ],
+    "relationships": [
+      { "id": "edge-a", "from": "item-a", "to": "item-b", "relationshipTypeId": "rel-support", "properties": {}, "provenance": [], "status": "asserted" },
+      { "id": "edge-b", "from": "item-a", "to": "item-b", "relationshipTypeId": "rel-manage", "properties": {}, "provenance": [], "status": "proposed" },
+      { "id": "edge-unresolved", "from": "item-b", "to": "item-a", "relationshipTypeId": null, "legacy": { "label": "", "reason": "unlabeled" }, "properties": {}, "provenance": [], "status": "proposed" }
+    ]
+  },
+  "views": [
+    { "id": "view-shared", "name": "Default", "scope": "shared", "query": {}, "entityIds": ["item-a", "item-b"], "positions": { "item-a": { "x": 0, "y": 0 }, "item-b": { "x": 300, "y": 0 } }, "viewport": { "x": 0, "y": 0, "zoom": 1 } },
+    { "id": "view-personal", "name": "Personal", "scope": "personal", "ownerId": "user-1", "query": {}, "entityIds": ["item-a"], "positions": { "item-a": { "x": 10, "y": 20 } }, "viewport": { "x": 0, "y": 0, "zoom": 1 } }
+  ],
+  "presentation": { "classStyles": {}, "relationshipStyles": {} },
+  "metadata": { "migration": { "sourceFields": { "example": "preserved" } } }
+}
